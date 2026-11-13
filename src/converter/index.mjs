@@ -46,6 +46,7 @@ import { TurtleConverter } from "./TurtleConverter.mjs";
 import { VillagerConverter } from "./VillagerConverter.mjs";
 import { WaterConverter } from "./WaterConverter.mjs";
 import { WeatherConverter } from "./WeatherConverter.mjs";
+import { ModernVersionedRenameConverter } from "./ModernVersionedRenameConverter.mjs";
 
 /**
  * @type {Function<AbstractConverter>[]}
@@ -97,7 +98,8 @@ const converters = [
     BannerPatternPreviewMaxSizeConverter,
     PngToTgaConverter,
     CopyConverter,
-    DeleteConverter
+    DeleteConverter,
+    ModernVersionedRenameConverter
 ];
 
 export { converters };
