@@ -1,0 +1,88 @@
+name: Java 26.3 full vanilla texture conversion
+on:
+  push:
+    branches: [feature/java26-3-runtime-compat]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  vanilla:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install --no-audit --no-fund
+      - name: Checkout Java 26.3 vanilla textures
+        uses: actions/checkout@v4
+        with:
+          repository: InventivetalentDev/minecraft-assets
+          ref: aaf3b3dbdf72b5723861324984813f3fd87db179
+          path: java26
+          sparse-checkout: |
+            assets/minecraft/textures
+          sparse-checkout-cone-mode: false
+          fetch-depth: 1
+      - name: Build Java resource pack from vanilla textures
+        run: |
+          python3 - <<'PY'
+          import zipfile,json
+          from pathlib import Path
+          root=Path('java26/assets/minecraft/textures')
+          files=sorted(p for p in root.rglob('*') if p.is_file())
+          assert len(files)>2000,len(files)
+          with zipfile.ZipFile('java26-vanilla.zip','w',zipfile.ZIP_DEFLATED,compresslevel=6) as z:
+              z.writestr('pack.mcmeta',json.dumps({'pack':{'min_format':[97,1],'max_format':97,'description':'Java 26.3 vanilla conversion test'}}))
+              for p in files:z.write(p,p.relative_to('java26'))
+          print('Java texture inputs',len(files), 'bytes',Path('java26-vanilla.zip').stat().st_size)
+          PY
+      - name: Convert full vanilla textures to Bedrock
+        run: |
+          mkdir -p output
+          node --max-old-space-size=6144 --input-type=module <<'JS' > conversion-log.txt 2>&1
+          import {ConsoleLog, Input, LocalFileInputEntry, LocalFileOutput} from '@modifiedcommand/convert-base-api';
+          import {ConvertJavaTextureToBedrockApi} from './src/index.mjs';
+          let o=await new ConvertJavaTextureToBedrockApi(
+            new Input(new LocalFileInputEntry('java26-vanilla.zip')),
+            new LocalFileOutput('output/vanilla-26_3-to-bedrock-1_26_50_4.mcpack'),
+            new ConsoleLog(),
+            {javaVersion:'26.3',bedrockVersion:'1.26.50.4'}
+          ).convert();
+          console.log('FULL_VANILLA_OUTPUT',o);
+          JS
+        shell: bash
+      - name: Validate Bedrock output inventory
+        run: |
+          python3 - <<'PY'
+          import zipfile,json
+          from pathlib import Path
+          path=Path('output/vanilla-26_3-to-bedrock-1_26_50_4.mcpack')
+          with zipfile.ZipFile(path) as z:
+              assert z.testzip() is None
+              files=z.namelist()
+              manifest=json.loads(z.read('manifest.json'))
+              assert manifest['format_version']==2
+              assert manifest['header']['min_engine_version']==[1,26,50]
+              png=sum(x.endswith('.png') for x in files)
+              tga=sum(x.endswith('.tga') for x in files)
+              assert png+tga>=1000,(png,tga)
+              print('VALID_VANILLA_MCPACK',len(files),'PNG',png,'TGA',tga,'size',path.stat().st_size)
+          PY
+      - name: Upload converter log
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: java26-vanilla-conversion-log
+          path: conversion-log.txt
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Upload mcpack
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: java26-vanilla-converted-mcpack
+          path: output/*.mcpack
+          if-no-files-found: error
+          retention-days: 14
