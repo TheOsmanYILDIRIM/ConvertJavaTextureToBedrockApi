@@ -37,6 +37,11 @@ class RenameConverter extends AbstractConverter {
             ["textures/block/", "textures/blocks/"],
             ["textures/item/", "textures/items/"],
 
+            // Java 26.3 copper chests: Bedrock calls unoxidized "default".
+            ["textures/entity/chest/copper.png", "textures/entity/chest/copper_default.png"],
+            ["textures/entity/chest/copper_left.png", "textures/entity/chest/copper_default_left.png"],
+            ["textures/entity/chest/copper_right.png", "textures/entity/chest/copper_default_right.png"],
+
             // Andesite
             ["textures/blocks/andesite.png", "textures/blocks/stone_andesite.png"],
             ["textures/blocks/polished_andesite.png", "textures/blocks/stone_andesite_smooth.png"],
