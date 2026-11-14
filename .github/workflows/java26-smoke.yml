@@ -64,7 +64,8 @@ jobs:
               assert manifest['header']['min_engine_version']==[1,26,50],manifest
               assert 'textures/entity/chest/copper_default.png' in names, sorted(names)
               assert 'textures/entity/chest/copper_default_double.png' in names,sorted(names)
-              assert 'textures/blocks/leaves_oak.png' in names,sorted(names)
+              assert 'textures/blocks/leaves_oak.tga' in names,sorted(names)
+              assert 'textures/blocks/leaves_oak_opaque.png' in names,sorted(names)
               print('SMOKE_TEST_PASS',manifest['header']['name'])
           PY
       - uses: actions/upload-artifact@v4
