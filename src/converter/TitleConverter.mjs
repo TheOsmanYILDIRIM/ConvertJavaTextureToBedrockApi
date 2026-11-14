@@ -14,6 +14,12 @@ class TitleConverter extends AbstractConverter {
             return [];
         }
 
+        // Java 26.3 provides a 1024x256 single-row logo. The legacy
+        // 255x90 two-row crop would read outside that image and crash Jimp.
+        if (this.options?.javaVersion === "26.3") {
+            this.log.warn("Skip legacy two-row title crop on Java 26.3 logo");
+            return [];
+        }
         this.log.log(`Convert title ${from}`);
 
         const image_from = await this.readImage(from);
