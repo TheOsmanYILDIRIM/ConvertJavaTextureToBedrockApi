@@ -21,22 +21,26 @@ class ModernSignConverter extends AbstractConverter {
         const paste = (sx,sy,w,h,dx,dy) =>
             atlas.composite(image.clone().crop(sx*factor,sy*factor,w*factor,h*factor),dx*factor,dy*factor);
         if (hanging) {
-            // Two faces on the sign board; chains are sampled from the
-            // 32px Java model texture's upper 8px area.
-            paste(2,16,14,10, 4,4);
-            paste(18,16,14,10, 24,4);
-            paste(2,14,14,2, 4,2);
-            paste(22,6,6,8, 2,18);
-            paste(4,6,6,8, 12,18);
+            // Java sign board faces are the 14x10 tiles at y=16; Bedrock
+            // places the pair adjacent at (2,14) and (18,14).
+            paste(0,0,16,6, 4,0);
+            paste(16,0,16,6, 10,6);
+            paste(24,7,8,6, 2,6);
+            paste(2,14,14,2, 2,12);
+            paste(2,16,14,10, 2,14);
+            paste(18,16,14,10, 18,14);
+            paste(2,26,14,2, 16,12);
         } else {
-            // Faces from template_sign_rot_0.json (model UV 0..16 mapped
-            // onto a 32px tile); Bedrock's board/pole texture is 64x32.
-            paste(0,16,24,12, 2,2);
-            paste(0,2,24,12, 28,2);
-            paste(24,2,2,12, 0,2);
-            paste(24,16,2,12, 26,2);
-            paste(28,0,2,14, 2,17);
-            paste(30,0,2,14, 4,17);
+            // Exact front/back/pole locations for the 32x32 Java sign tile
+            // and Mojang's classic 64x32 Bedrock standing-sign atlas.
+            paste(0,0,24,2, 2,0);
+            paste(0,14,24,2, 28,0);
+            paste(0,2,24,12, 2,2);
+            paste(0,16,24,12, 28,2);
+            paste(24,2,2,12, 26,2);
+            paste(24,16,2,12, 0,2);
+            paste(28,0,2,14, 2,16);
+            paste(30,0,2,14, 4,16);
         }
         await this.writeImage(output,atlas);
         return [];
