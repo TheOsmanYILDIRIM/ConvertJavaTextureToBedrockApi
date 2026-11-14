@@ -55,6 +55,7 @@ const converters = [
     FixWrongRootFolderConverter,
     MetadataConverter,
     RenameConverter,
+    ModernVersionedRenameConverter,
     AtlasConverter,
     BannerPatternConverter,
     BedConverter,
@@ -98,8 +99,7 @@ const converters = [
     BannerPatternPreviewMaxSizeConverter,
     PngToTgaConverter,
     CopyConverter,
-    DeleteConverter,
-    ModernVersionedRenameConverter
+    DeleteConverter
 ];
 
 export { converters };

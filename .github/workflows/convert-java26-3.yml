@@ -1,0 +1,75 @@
+name: Convert Java 26.3 vanilla textures
+on:
+  push:
+    branches:
+      - feature/java26-3-full-conversion
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  convert:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkout pinned Java 26.3 assets
+        uses: actions/checkout@v4
+        with:
+          repository: InventivetalentDev/minecraft-assets
+          ref: aaf3b3dbdf72b5723861324984813f3fd87db179
+          path: java-vanilla
+          sparse-checkout: |
+            assets/minecraft/textures
+          sparse-checkout-cone-mode: false
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: npm install --omit=dev --no-audit --no-fund
+      - name: Check JavaScript
+        run: find src scripts -name '*.mjs' -print0 | xargs -0 -n1 node --check
+      - name: Prepare vanilla Java ZIP
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile,ZIP_DEFLATED
+          import json
+          origin=Path("java-vanilla/assets/minecraft/textures")
+          images=sorted(origin.rglob("*.png"))
+          assert len(images)>4000, len(images)
+          Path("build").mkdir(exist_ok=True)
+          with ZipFile("build/java_26_3_vanilla.zip","w",ZIP_DEFLATED,compresslevel=4) as z:
+              z.writestr("pack.mcmeta",json.dumps({"pack":{"description":"Java 26.3 vanilla conversion test","min_format":[97,1],"max_format":[97,1]}}))
+              for f in images:z.write(f,str(Path("assets/minecraft/textures")/f.relative_to(origin)))
+          print("Java source PNGs",len(images))
+          PY
+      - name: Convert texture pack with fork engine
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
+        run: node scripts/convert-26-3.mjs build/java_26_3_vanilla.zip build/java26_3-to-bedrock1_26_50_4.mcpack >build/conversion.log 2>&1 || { tail -n 150 build/conversion.log; exit 1; }
+      - name: Check Bedrock result
+        run: |
+          python3 - <<'PY'
+          import json,zipfile
+          p="build/java26_3-to-bedrock1_26_50_4.mcpack"
+          with zipfile.ZipFile(p) as z:
+              assert z.testzip() is None
+              a=set(z.namelist())
+              m=json.loads(z.read("manifest.json"))
+              count=sum(x.endswith(".png") for x in a)
+              assert m["format_version"]==2,m
+              assert m["header"]["min_engine_version"]==[1,26,0]
+              assert count>1000,count
+              print(json.dumps({"pngs":count,"total":len(a)}))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: converted-java26-3-bedrock-pack
+          path: |
+            build/java_26_3_vanilla.zip
+            build/java26_3-to-bedrock1_26_50_4.mcpack
+            build/conversion.log
+          if-no-files-found: warn
+          retention-days: 7

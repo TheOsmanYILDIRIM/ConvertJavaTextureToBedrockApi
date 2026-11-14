@@ -78,7 +78,11 @@ class ChestLeftRightDoubleConverter extends AbstractConverter {
         return [
             ["textures/entity/chest/normal_left.png", "textures/entity/chest/normal_right.png", "textures/entity/chest/double_normal.png"],
             ["textures/entity/chest/trapped_left.png", "textures/entity/chest/trapped_right.png", "textures/entity/chest/trapped_double.png"],
-            ["textures/entity/chest/christmas_left.png", "textures/entity/chest/christmas_right.png", "textures/entity/chest/christmas_double.png"]
+            ["textures/entity/chest/christmas_left.png", "textures/entity/chest/christmas_right.png", "textures/entity/chest/christmas_double.png"],
+            ["textures/entity/chest/copper_left.png", "textures/entity/chest/copper_right.png", "textures/entity/chest/copper_double.png"],
+            ["textures/entity/chest/copper_exposed_left.png", "textures/entity/chest/copper_exposed_right.png", "textures/entity/chest/copper_exposed_double.png"],
+            ["textures/entity/chest/copper_weathered_left.png", "textures/entity/chest/copper_weathered_right.png", "textures/entity/chest/copper_weathered_double.png"],
+            ["textures/entity/chest/copper_oxidized_left.png", "textures/entity/chest/copper_oxidized_right.png", "textures/entity/chest/copper_oxidized_double.png"]
         ];
     }
 }

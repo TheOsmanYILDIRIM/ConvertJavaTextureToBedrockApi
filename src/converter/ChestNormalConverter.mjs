@@ -68,7 +68,11 @@ class ChestNormalConverter extends AbstractConverter {
             "textures/entity/chest/normal.png",
             "textures/entity/chest/trapped.png",
             "textures/entity/chest/ender.png",
-            "textures/entity/chest/christmas.png"
+            "textures/entity/chest/christmas.png",
+            "textures/entity/chest/copper.png",
+            "textures/entity/chest/copper_exposed.png",
+            "textures/entity/chest/copper_weathered.png",
+            "textures/entity/chest/copper_oxidized.png"
         ];
     }
 }
