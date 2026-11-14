@@ -937,7 +937,7 @@ class RenameConverter extends AbstractConverter {
             ["textures/items/zombie_horse_spawn_egg.png", "textures/items/spawn_eggs/spawn_egg_zombie_horse.png"],
             ["textures/items/zombie_spawn_egg.png", "textures/items/spawn_eggs/spawn_egg_zombie.png"],
             ["textures/items/zombie_villager_spawn_egg.png", "textures/items/spawn_eggs/spawn_egg_zombie_villager.png"],
-            ["textures/items/zombified_piglin_spawn_egg.png", "textures/items/spawn_eggs/spawn_egg_zombified_piglin.png"]
+            ["textures/items/zombified_piglin_spawn_egg.png", "textures/items/spawn_eggs/spawn_egg_zombified_piglin.png"],
 			
             // Observer
             ["textures/blocks/observer_back_on.png", "textures/blocks/observer_back_lit.png"],
