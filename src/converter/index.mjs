@@ -6,6 +6,8 @@ import { BannerPatternBlackConverter } from "./BannerPatternBlackConverter.mjs";
 import { BannerPatternPreviewMaxSizeConverter } from "./BannerPatternPreviewMaxSizeConverter.mjs";
 import { BarConverter } from "./BarConverter.mjs";
 import { BedConverter } from "./BedConverter.mjs";
+import { ModernBedFacesConverter } from "./ModernBedFacesConverter.mjs";
+import { ModernSignConverter } from "./ModernSignConverter.mjs";
 import { BeeConverter } from "./BeeConverter.mjs";
 import { ChestFrontConverter } from "./ChestFrontConverter.mjs";
 import { ChestLeftRightDoubleConverter } from "./ChestLeftRightDoubleConverter.mjs";
@@ -59,6 +61,8 @@ const converters = [
     AtlasConverter,
     BannerPatternConverter,
     BedConverter,
+    ModernBedFacesConverter,
+    ModernSignConverter,
     ChestNormalConverter,
     ChestLeftRightDoubleConverter,
     ChestFrontConverter,

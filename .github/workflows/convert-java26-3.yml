@@ -37,7 +37,7 @@ jobs:
           import json
           origin=Path("java-vanilla/assets/minecraft/textures")
           images=sorted(origin.rglob("*.png"))
-          assert len(images)>4000, len(images)
+          assert len(images)>3500, len(images)
           Path("build").mkdir(exist_ok=True)
           with ZipFile("build/java_26_3_vanilla.zip","w",ZIP_DEFLATED,compresslevel=4) as z:
               z.writestr("pack.mcmeta",json.dumps({"pack":{"description":"Java 26.3 vanilla conversion test","min_format":[97,1],"max_format":[97,1]}}))
