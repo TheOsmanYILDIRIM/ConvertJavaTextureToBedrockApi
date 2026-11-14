@@ -1,0 +1,45 @@
+name: Bedrock texture-only archive
+on:
+  push:
+    branches:
+      - artifact/bedrock-textures-only
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get official Mojang texture directory
+        uses: actions/checkout@v4
+        with:
+          repository: Mojang/bedrock-samples
+          ref: 15701fa9c13923f12662984c32c124327e40e3d3
+          path: bedrock
+          sparse-checkout: |
+            resource_pack/textures
+          sparse-checkout-cone-mode: false
+          fetch-depth: 1
+      - name: Create texture-only zip
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile, ZIP_DEFLATED
+          import json
+          root = Path("bedrock/resource_pack/textures")
+          files = sorted(p for p in root.rglob("*") if p.is_file())
+          assert len(files) > 4000, f"Unexpected file count {len(files)}"
+          target = Path("bedrock-textures-mojang-20261114.zip")
+          with ZipFile(target, "w", compression=ZIP_DEFLATED, compresslevel=6) as archive:
+              for path in files:
+                  archive.write(path, arcname=str(Path("textures") / path.relative_to(root)))
+          with ZipFile(target) as archive:
+              assert archive.testzip() is None
+              assert len(archive.namelist()) == len(files)
+          print(json.dumps({"archive":str(target),"count":len(files),"size_bytes":target.stat().st_size}))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bedrock-textures-mojang-20261114
+          path: bedrock-textures-mojang-20261114.zip
+          if-no-files-found: error
+          retention-days: 30
