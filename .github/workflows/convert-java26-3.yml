@@ -61,7 +61,18 @@ jobs:
               assert m["format_version"]==2,m
               assert m["header"]["min_engine_version"]==[1,26,0]
               assert count>1000,count
-              print(json.dumps({"pngs":count,"total":len(a)}))
+              beds=["white","orange","magenta","light_blue","yellow","lime","pink","gray","light_gray","cyan","purple","blue","brown","green","red","black"]
+              woods=["oak","spruce","birch","jungle","acacia","dark_oak","mangrove","cherry","bamboo","crimson","warped","pale_oak","poplar"]
+              modern_suffix={"bamboo","cherry","mangrove","pale_oak","poplar"}
+              expected_beds={f"textures/entity/bed/{'silver' if c=='light_gray' else c}.png" for c in beds}
+              expected_signs={f"textures/entity/{w}_hanging_sign.png" for w in woods}
+              expected_signs|={f"textures/entity/{'sign' if w=='oak' else w+'_sign' if w in modern_suffix else 'sign_'+('darkoak' if w=='dark_oak' else w)}.png" for w in woods}
+              expected_copper={f"textures/entity/chest/copper_{variant}{suffix}.png" for variant in ["default","exposed","weathered","oxidized"] for suffix in ["","_double"]}
+              expected_opaque={"textures/blocks/leaves_oak_opaque.png","textures/blocks/leaves_birch_opaque.png"}
+              required=expected_beds | expected_signs | expected_copper | expected_opaque | {"textures/particle/particles.png"}
+              missing=sorted(required-a)
+              assert not missing, f"Missing generated family textures: {missing}"
+              print(json.dumps({"pngs":count,"total":len(a),"beds":len(expected_beds),"signs":len(expected_signs),"copper_chests":len(expected_copper)}))
           PY
       - uses: actions/upload-artifact@v4
         if: always()
