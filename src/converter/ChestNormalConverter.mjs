@@ -13,7 +13,7 @@ class ChestNormalConverter extends AbstractConverter {
             return [];
         }
 
-        const from = this.data;
+        const [from, to] = Array.isArray(this.data) ? this.data : [this.data, this.data];
 
         if (!await this.output.exists(from)) {
             return [];
@@ -55,7 +55,7 @@ class ChestNormalConverter extends AbstractConverter {
 
         image.composite(image_from.clone().crop(0, 0, (6 * factor), (6 * factor)), 0, 0);
 
-        await this.writeImage(from, image);
+        await this.writeImage(to, image);
 
         return [];
     }
@@ -69,7 +69,7 @@ class ChestNormalConverter extends AbstractConverter {
             "textures/entity/chest/trapped.png",
             "textures/entity/chest/ender.png",
             "textures/entity/chest/christmas.png",
-            "textures/entity/chest/copper.png",
+            ["textures/entity/chest/copper.png", "textures/entity/chest/copper_default.png"],
             "textures/entity/chest/copper_exposed.png",
             "textures/entity/chest/copper_weathered.png",
             "textures/entity/chest/copper_oxidized.png"

@@ -10,7 +10,11 @@ class ModernSignConverter extends AbstractConverter {
         const [wood, hanging] = this.data;
         const input = `textures/blocks/${wood}${hanging ? "_hanging" : ""}_sign.png`;
         if (!await this.output.exists(input)) return [];
-        const targetName = hanging ? `${wood}_hanging_sign` : (wood === "oak" ? "sign" : `sign_${wood}`);
+        const suffix = new Set(["bamboo","cherry","mangrove","pale_oak","poplar"]);
+        const targetName = hanging ? `${wood}_hanging_sign`
+            : wood === "oak" ? "sign"
+            : suffix.has(wood) ? `${wood}_sign`
+            : `sign_${wood === "dark_oak" ? "darkoak" : wood}`;
         const output = `textures/entity/${targetName}.png`;
         if (await this.output.exists(output)) return [];
         const image = await this.readImage(input);

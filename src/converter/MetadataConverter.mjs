@@ -51,6 +51,13 @@ class MetadataConverter extends AbstractConverter {
             throw new Error("Only supports pack_format 4 (v.13–1.14.4), 5 (v.15–1.16.1), 6 (v1.16.2-.16.5), 7 (v1.17), 8(v1.18), or 9(v1.19)!");
         }
 
+        // The browser app currently passes no version options. Detect only the
+        // exact supported Java profile; unknown future pack formats stay legacy.
+        if (modern && Number(pack.min_format?.[0]) === 97 && Number(pack.min_format?.[1]) === 1
+            && Number(pack.max_format?.[0]) === 97 && Number(pack.max_format?.[1]) === 1) {
+            if (!this.options.javaVersion) this.options.javaVersion = "26.3";
+            if (!this.options.bedrockVersion) this.options.bedrockVersion = "1.26.50.4";
+        }
         const description = typeof pack.description === "string" ? pack.description : JSON.stringify(pack.description || "Java resource pack");
         const manifest = {
             "format_version": modern ? 2 : 1,
