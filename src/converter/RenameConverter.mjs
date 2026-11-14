@@ -8,6 +8,8 @@ class RenameConverter extends AbstractConverter {
      * @inheritDoc
      */
     async convert() {
+        // Upstream converter table contains an intentionally empty slot.
+        if (!Array.isArray(this.data) || this.data.length !== 2) return [];
         const [from, to] = this.data;
 
         if (!await this.output.exists(from)) {
