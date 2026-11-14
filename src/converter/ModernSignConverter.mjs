@@ -34,6 +34,11 @@ class ModernSignConverter extends AbstractConverter {
             paste(2,16,14,10, 2,14);
             paste(18,16,14,10, 18,14);
             paste(2,26,14,2, 16,12);
+            // Java standing/hanging sign board side strips have separate
+            // 2px columns. Restore those UV faces (same for every wood).
+            paste(0,16,2,10, 0,14);
+            paste(16,16,2,10, 16,14);
+            paste(16,7,4,2, 0,4);
         } else {
             // Exact front/back/pole locations for the 32x32 Java sign tile
             // and Mojang's classic 64x32 Bedrock standing-sign atlas.
@@ -45,6 +50,12 @@ class ModernSignConverter extends AbstractConverter {
             paste(24,16,2,12, 0,2);
             paste(28,0,2,14, 2,16);
             paste(30,0,2,14, 4,16);
+            // Extra horizontal seam and two support pole sides verified
+            // against Mojang's vanilla 64x32 sign.png.
+            atlas.composite(image.clone().crop(0,28*factor,24*factor,2*factor).flip(false,true),26*factor,0);
+            paste(8,28,4,2, 2,14);
+            paste(30,16,2,14, 0,16);
+            paste(28,16,2,14, 6,16);
         }
         await this.writeImage(output,atlas);
         return [];
