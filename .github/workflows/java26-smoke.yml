@@ -1,0 +1,76 @@
+name: Java 26.3 conversion smoke test
+on:
+  push:
+    branches: [feature/java26-3-runtime-compat]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install
+        run: npm install --no-audit --no-fund
+      - name: Syntax
+        run: |
+          find src -name '*.mjs' -print0 | xargs -0 -n1 node --check
+      - name: Generate synthetic Java 26.3 resource pack
+        run: |
+          python3 - <<'PY'
+          import json,struct,zlib,zipfile
+          from pathlib import Path
+          def png(w,h,rgba):
+              raw=b''.join(b'\x00'+bytes(rgba)*w for _ in range(h))
+              def chunk(k,d):return struct.pack('>I',len(d))+k+d+struct.pack('>I',zlib.crc32(k+d)&0xffffffff)
+              return b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',struct.pack('>IIBBBBB',w,h,8,6,0,0,0))+chunk(b'IDAT',zlib.compress(raw))+chunk(b'IEND',b'')
+          with zipfile.ZipFile('java26-test.zip','w',zipfile.ZIP_DEFLATED) as out:
+              out.writestr('pack.mcmeta',json.dumps({'pack':{'min_format':[97,1],'max_format':97,'description':'26.3 smoke test'}}))
+              out.writestr('assets/minecraft/textures/entity/chest/copper.png',png(64,64,(120,80,45,255)))
+              out.writestr('assets/minecraft/textures/entity/chest/copper_left.png',png(64,64,(140,90,40,255)))
+              out.writestr('assets/minecraft/textures/entity/chest/copper_right.png',png(64,64,(160,100,40,255)))
+              out.writestr('assets/minecraft/textures/block/oak_leaves.png',png(16,16,(54,92,40,255)))
+          PY
+      - name: Convert to mcpack
+        run: |
+          mkdir -p output
+          node --input-type=module <<'JS'
+          import { ConsoleLog, Input, LocalFileInputEntry, LocalFileOutput } from '@modifiedcommand/convert-base-api';
+          import { ConvertJavaTextureToBedrockApi } from './src/index.mjs';
+          const api = new ConvertJavaTextureToBedrockApi(
+            new Input(new LocalFileInputEntry('java26-test.zip')),
+            new LocalFileOutput('output/smoke-26.3.mcpack'),
+            new ConsoleLog(),
+            { javaVersion: '26.3', bedrockVersion: '1.26.50.4' }
+          );
+          console.log(await api.convert());
+          JS
+      - name: Validate mcpack
+        run: |
+          python3 - <<'PY'
+          from zipfile import ZipFile
+          import json
+          p='output/smoke-26.3.mcpack'
+          with ZipFile(p) as z:
+              names=set(z.namelist())
+              assert z.testzip() is None
+              print('pack entries:', sorted(names)[:35])
+              manifest=json.loads(z.read('manifest.json'))
+              assert manifest['format_version']==2, manifest
+              assert manifest['header']['min_engine_version']==[1,26,50],manifest
+              assert 'textures/entity/chest/copper_default.png' in names, sorted(names)
+              assert 'textures/entity/chest/copper_default_double.png' in names,sorted(names)
+              assert 'textures/blocks/leaves_oak.png' in names,sorted(names)
+              print('SMOKE_TEST_PASS',manifest['header']['name'])
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: java26-smoke-output
+          path: output/
+          if-no-files-found: warn
+          retention-days: 14
