@@ -31,6 +31,8 @@ jobs:
           sparse-checkout: |
             resource_pack/textures/entity
             resource_pack/textures/blocks
+            resource_pack/textures/items
+            resource_pack/textures/particle
           sparse-checkout-cone-mode: false
           fetch-depth: 1
       - uses: actions/setup-node@v4
