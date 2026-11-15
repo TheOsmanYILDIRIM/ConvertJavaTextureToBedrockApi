@@ -37,9 +37,26 @@ class ModernBedFacesConverter extends AbstractConverter {
                 throw new Error(`Inconsistent bed face resolution: ${color}`);
         }
         const atlas = await this.createImage(64 * factor, 64 * factor);
-        const place = (name, sx, sy, w, h, dx, dy, mode = 0) => {
-            const piece = source[name].clone().crop(sx*factor,sy*factor,w*factor,h*factor);
-            if (mode === 1) piece.rotateSimple(90);
+        const rotate90CcwExact = async (piece) => {
+            const width = piece.getWidth(), height = piece.getHeight();
+            const rotated = await this.createImage(height, width);
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const si = (y * width + x) * 4;
+                    const dx = y;
+                    const dy = width - 1 - x;
+                    const di = (dy * height + dx) * 4;
+                    rotated.bitmap.data[di] = piece.bitmap.data[si];
+                    rotated.bitmap.data[di + 1] = piece.bitmap.data[si + 1];
+                    rotated.bitmap.data[di + 2] = piece.bitmap.data[si + 2];
+                    rotated.bitmap.data[di + 3] = piece.bitmap.data[si + 3];
+                }
+            }
+            return rotated;
+        };
+        const place = async (name, sx, sy, w, h, dx, dy, mode = 0) => {
+            let piece = source[name].clone().crop(sx*factor,sy*factor,w*factor,h*factor);
+            if (mode === 1) piece = await rotate90CcwExact(piece);
             else if (mode === 2) piece.rotateSimple(180);
             else if (mode === 3) piece.rotateSimple(270);
             else if (mode === 4) piece.flip(false, true);
@@ -48,25 +65,25 @@ class ModernBedFacesConverter extends AbstractConverter {
         // Coordinate atlas derived by pixel-matching Java 26.3 block faces
         // against Mojang's vanilla Bedrock 1.26.50.4 red bed entity atlas.
         // The same layout is shared by all sixteen color variants.
-        place("head_up",0,0,16,16,6,6);
-        place("foot_up",0,0,16,16,6,22);
-        place("head_north",0,7,16,6,6,0,2);
-        place("foot_south",0,7,16,6,22,0,4);
-        place("head_east",0,7,16,6,22,6,1);
-        place("head_west",0,7,16,6,0,6,3);
-        place("foot_east",0,7,16,6,22,22,1);
-        place("foot_west",0,7,16,6,0,22,3);
-        place("down",0,0,16,16,28,6,2);
-        place("down",0,0,16,16,28,22,2);
+        await place("head_up",0,0,16,16,6,6);
+        await place("foot_up",0,0,16,16,6,22);
+        await place("head_north",0,7,16,6,6,0,2);
+        await place("foot_south",0,7,16,6,22,0,4);
+        await place("head_east",0,7,16,6,22,6,1);
+        await place("head_west",0,7,16,6,0,6,3);
+        await place("foot_east",0,7,16,6,22,22,1);
+        await place("foot_west",0,7,16,6,0,22,3);
+        await place("down",0,0,16,16,28,6,2);
+        await place("down",0,0,16,16,28,22,2);
         // Four bed posts are 3x3 UV patches repeated in a common pattern.
         // Restore the original nonrectangular atlas alpha footprint.
         for (const y of [38,44]) for (const x of [3,6,15,18]) {
             const p = x < 12 ? "head_west" : "foot_west";
-            place(p, x % 6 === 3 ? 0 : 3, 13, 3, 3, x, y);
+            await place(p, x % 6 === 3 ? 0 : 3, 13, 3, 3, x, y);
         }
         for (const y of [41,47]) for (let x=0;x<24;x+=3) {
             const p = x < 12 ? "head_east" : "foot_east";
-            place(p, (x % 12) < 6 ? 10 : 13, 13, 3, 3, x, y);
+            await place(p, (x % 12) < 6 ? 10 : 13, 13, 3, 3, x, y);
         }
         await this.writeImage(target, atlas);
         return [];
