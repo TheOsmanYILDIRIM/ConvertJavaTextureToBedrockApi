@@ -61,11 +61,18 @@ class ModernEntityFamilyConverter extends AbstractConverter {
         if (!Number.isInteger(factor) || factor < 1 || image.getHeight() !== 256 * factor) return false;
         // Current Bedrock dragon geometry addresses a second copy of this
         // 56x111 UV island. Java leaves the destination slot transparent.
-        image.composite(
-            image.clone().crop(0, 89 * factor, 56 * factor, 111 * factor),
-            56 * factor,
-            89 * factor
-        );
+        const width = image.getWidth();
+        const source = Buffer.from(image.bitmap.data);
+        for (let y = 0; y < 111 * factor; y++) {
+            for (let x = 0; x < 56 * factor; x++) {
+                const src = (((89 * factor + y) * width) + x) * 4;
+                const dst = (((89 * factor + y) * width) + (56 * factor + x)) * 4;
+                image.bitmap.data[dst] = source[src];
+                image.bitmap.data[dst + 1] = source[src + 1];
+                image.bitmap.data[dst + 2] = source[src + 2];
+                image.bitmap.data[dst + 3] = source[src + 3];
+            }
+        }
         await this.writeImage(path, image);
         return true;
     }

@@ -147,14 +147,6 @@ jobs:
                   out=output_rgba(name); ref=reference_rgba(name)
                   assert ImageChops.difference(out,ref).getbbox() is None, f"Entity exact mismatch: {name}"
 
-              professions=["armorer","butcher","cartographer","cleric","farmer","fisherman","fletcher","leatherworker","librarian","nitwit","shepherd","stonemason","toolsmith","weaponsmith"]
-              for family in ["villager2","zombie_villager2"]:
-                  for profession in professions:
-                      assert_visible_exact(f"textures/entity/{family}/professions/{profession}.tga")
-
-              for name in ["textures/entity/dragon/dragon.tga","textures/entity/dragon/dragon_exploding.png"]:
-                  assert_visible_exact(name)
-
               arrow=output_rgba("textures/entity/arrows.png")
               arrow_ref=reference_rgba("textures/entity/arrows.png")
               assert arrow.getchannel("A").tobytes()==arrow_ref.getchannel("A").tobytes(), "Arrow UV/alpha mismatch"
@@ -170,6 +162,14 @@ jobs:
                       for xx in range(out.width):
                           if rp[xx,yy][3] and op[xx,yy] != rp[xx,yy]:
                               raise AssertionError(f"Visible pixel mismatch: {name} @ {(xx,yy)}")
+
+              professions=["armorer","butcher","cartographer","cleric","farmer","fisherman","fletcher","leatherworker","librarian","nitwit","shepherd","stonemason","toolsmith","weaponsmith"]
+              for family in ["villager2","zombie_villager2"]:
+                  for profession in professions:
+                      assert_visible_exact(f"textures/entity/{family}/professions/{profession}.tga")
+
+              for name in ["textures/entity/dragon/dragon.tga","textures/entity/dragon/dragon_exploding.png"]:
+                  assert_visible_exact(name)
 
               for name in ["textures/blocks/copper_chain1.png","textures/blocks/copper_chain2.png",
                            "textures/blocks/oxidized_copper_chain1.png","textures/blocks/oxidized_copper_chain2.png",
