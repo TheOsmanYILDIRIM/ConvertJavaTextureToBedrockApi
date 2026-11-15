@@ -65,6 +65,68 @@ jobs:
         env:
           NODE_OPTIONS: --max-old-space-size=6144
         run: node scripts/convert-26-3.mjs build/java_26_3_vanilla.zip build/java26_3-to-bedrock1_26_50_4.mcpack >build/conversion.log 2>&1 || { tail -n 150 build/conversion.log; exit 1; }
+      - name: Prepare HD chest scale test packs
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile,ZIP_DEFLATED
+          from PIL import Image
+          import json
+          src=Image.open("java-vanilla/assets/minecraft/textures/entity/chest/normal.png").convert("RGBA")
+          assert src.size==(64,64),src.size
+          root=Path("build/chest-hd-proof")
+          root.mkdir(parents=True,exist_ok=True)
+          for factor in (2,3,16):
+              scaled=src.resize((64*factor,64*factor),Image.Resampling.NEAREST)
+              png=root/f"java_normal_{factor}x.png"
+              scaled.save(png)
+              with ZipFile(root/f"java_chest_{factor}x.zip","w",ZIP_DEFLATED) as z:
+                  z.writestr("pack.mcmeta",json.dumps({"pack":{"description":f"Java 26.3 chest {factor}x scale test","min_format":[97,1],"max_format":[97,1]}}))
+                  z.write(png,"assets/minecraft/textures/entity/chest/normal.png")
+          PY
+      - name: Convert HD chest scale test packs
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: |
+          for factor in 2 3 16; do
+            node scripts/convert-26-3.mjs               "build/chest-hd-proof/java_chest_${factor}x.zip"               "build/chest-hd-proof/bedrock_chest_${factor}x.mcpack"               >"build/chest-hd-proof/conversion_${factor}x.log" 2>&1 || {
+                cat "build/chest-hd-proof/conversion_${factor}x.log"
+                exit 1
+              }
+          done
+      - name: Verify HD chest scale invariance
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          from io import BytesIO
+          from PIL import Image
+          import json
+          root=Path("build/chest-hd-proof")
+          names=["chest_front.png","chest_side.png","chest_top.png"]
+          report={}
+          with ZipFile("build/java26_3-to-bedrock1_26_50_4.mcpack") as vanilla:
+              base={name:Image.open(BytesIO(vanilla.read("textures/blocks/"+name))).convert("RGBA") for name in names}
+          for factor in (2,3,16):
+              with ZipFile(root/f"bedrock_chest_{factor}x.mcpack") as hd:
+                  factor_report={}
+                  for name in names:
+                      path="textures/blocks/"+name
+                      hi=Image.open(BytesIO(hd.read(path))).convert("RGBA")
+                      expected_size=(16*factor,16*factor)
+                      assert hi.size==expected_size,(factor,name,hi.size,expected_size)
+                      expected=base[name].resize(expected_size,Image.Resampling.NEAREST)
+                      assert hi.tobytes()==expected.tobytes(), f"{factor}x scale-equivalence mismatch: {name}"
+                      hi.save(root/f"{factor}x_{name}")
+                      factor_report[name]={
+                          "atlas_size":[64*factor,64*factor],
+                          "output_size":list(hi.size),
+                          "pixel_exact_to_vanilla_output_scaled":True
+                      }
+                  report[f"{factor}x"]=factor_report
+          (root/"report.json").write_text(json.dumps(report,indent=2),encoding="utf-8")
+          print(json.dumps(report))
+          PY
       - name: Check Bedrock result
         run: |
           python3 - <<'PY'
@@ -118,17 +180,25 @@ jobs:
                   assert a.size==b.size,(a.size,b.size)
                   return sum(1 for ap,bp in zip(a.getdata(),b.getdata()) if ap != bp)
 
-              def nearest14_to16(source):
-                  out=Image.new("RGBA",(16,16))
+              def nearest14_to16(source,factor=1):
+                  java_uv=14
+                  bedrock_uv=16
+                  assert source.size==(java_uv*factor,java_uv*factor),source.size
+                  out=Image.new("RGBA",(bedrock_uv*factor,bedrock_uv*factor))
                   sp=source.load(); op=out.load()
-                  for yy in range(16):
-                      sy=min(13,((2*yy+1)*14)//32)
-                      for xx in range(16):
-                          sx=min(13,((2*xx+1)*14)//32)
+                  def source_pixel(dst):
+                      dst_cell=dst//factor
+                      sub=dst%factor
+                      src_cell=min(java_uv-1,int(((dst_cell+0.5)*java_uv)//bedrock_uv))
+                      return src_cell*factor+sub
+                  for yy in range(bedrock_uv*factor):
+                      sy=source_pixel(yy)
+                      for xx in range(bedrock_uv*factor):
+                          sx=source_pixel(xx)
                           op[xx,yy]=sp[sx,sy]
                   return out
 
-              assert [min(13,((2*x+1)*14)//32) for x in range(16)] == [0,1,2,3,3,4,5,6,7,8,9,10,10,11,12,13], "Chest resize sampling phase regressed"
+              assert [int(((x+0.5)*14)//16) for x in range(16)] == [0,1,2,3,3,4,5,6,7,8,9,10,10,11,12,13], "Chest resize sampling phase regressed"
 
               def expected_vertical_face(source,x,with_latch=False):
                   lid=source.crop((x,14,x+14,19)).transpose(Image.Transpose.ROTATE_180)
@@ -312,5 +382,12 @@ jobs:
         with:
           name: chest-output-vs-bedrock
           path: build/chest-review
+          if-no-files-found: warn
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: chest-hd-scaling-proof
+          path: build/chest-hd-proof
           if-no-files-found: warn
           retention-days: 7

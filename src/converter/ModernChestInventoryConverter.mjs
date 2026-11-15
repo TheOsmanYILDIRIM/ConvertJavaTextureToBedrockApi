@@ -14,13 +14,30 @@ class ModernChestInventoryConverter extends AbstractConverter {
     }
 
     async nearest14To16(image, factor) {
-        const srcSize = 14 * factor;
-        const dstSize = 16 * factor;
+        const javaUvUnits = 14;
+        const bedrockUvUnits = 16;
+        const srcSize = javaUvUnits * factor;
+        const dstSize = bedrockUvUnits * factor;
         const out = await this.createImage(dstSize, dstSize);
+
+        // Resolution-independent UV remap:
+        // 1) choose the Java UV cell from the center of each Bedrock UV cell,
+        // 2) preserve the exact sub-pixel offset inside that cell.
+        // This means 64->16, 128->32, 192->48, 1024->256, etc. with no downscale.
+        const sourcePixel = (destinationPixel) => {
+            const destinationCell = Math.floor(destinationPixel / factor);
+            const subPixel = destinationPixel % factor;
+            const sourceCell = Math.min(
+                javaUvUnits - 1,
+                Math.floor(((destinationCell + 0.5) * javaUvUnits) / bedrockUvUnits)
+            );
+            return (sourceCell * factor) + subPixel;
+        };
+
         for (let y = 0; y < dstSize; y++) {
-            const sy = Math.min(srcSize - 1, Math.floor((y + 0.5) * srcSize / dstSize));
+            const sy = sourcePixel(y);
             for (let x = 0; x < dstSize; x++) {
-                const sx = Math.min(srcSize - 1, Math.floor((x + 0.5) * srcSize / dstSize));
+                const sx = sourcePixel(x);
                 const si = (sy * srcSize + sx) * 4;
                 const di = (y * dstSize + x) * 4;
                 out.bitmap.data[di] = image.bitmap.data[si];
