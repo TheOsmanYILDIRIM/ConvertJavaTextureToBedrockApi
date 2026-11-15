@@ -141,12 +141,17 @@ jobs:
                   expected_size=(a.width*3,a.height*3)
                   assert b.size==expected_size,(path,a.size,b.size,expected_size)
                   expected=a.resize(expected_size,Image.Resampling.NEAREST)
-                  assert b.tobytes()==expected.tobytes(), f"3x scale-equivalence mismatch: {path}"
+                  exact=b.tobytes()==expected.tobytes()
                   safe=path.replace("/","__").rsplit(".",1)[0]+".png"
                   b.save(proof/safe)
-                  report[path]={"base_size":list(a.size),"hd3x_size":list(b.size),"pixel_exact_to_base_3x":True}
+                  diff_pixels=sum(1 for bp,ep in zip(b.getdata(),expected.getdata()) if bp!=ep)
+                  if not exact:
+                      expected.save(proof/(safe[:-4]+"__expected.png"))
+                  report[path]={"base_size":list(a.size),"hd3x_size":list(b.size),"pixel_exact_to_base_3x":exact,"diff_pixels":diff_pixels}
           (proof/"report.json").write_text(json.dumps(report,indent=2),encoding="utf-8")
           print(json.dumps(report))
+          failed=[p for p,m in report.items() if not m["pixel_exact_to_base_3x"]]
+          assert not failed, f"3x scale-equivalence mismatches: {failed}"
           PY
       - name: Prepare HD chest scale test packs
         run: |
