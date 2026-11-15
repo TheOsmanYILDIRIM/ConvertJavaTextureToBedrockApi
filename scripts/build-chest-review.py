@@ -42,8 +42,8 @@ def checker(size, cell=16):
 
 def render(im, box=192):
     bg=checker((box,box))
-    cp=im.copy()
-    cp.thumbnail((box,box),Image.Resampling.NEAREST)
+    scale=max(1,min(box//im.width,box//im.height))
+    cp=im.resize((im.width*scale,im.height*scale),Image.Resampling.NEAREST)
     bg.alpha_composite(cp,((box-cp.width)//2,(box-cp.height)//2))
     return bg
 
