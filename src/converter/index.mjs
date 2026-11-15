@@ -50,6 +50,7 @@ import { VillagerConverter } from "./VillagerConverter.mjs";
 import { WaterConverter } from "./WaterConverter.mjs";
 import { WeatherConverter } from "./WeatherConverter.mjs";
 import { ModernVersionedRenameConverter } from "./ModernVersionedRenameConverter.mjs";
+import { ModernEntityFamilyConverter } from "./ModernEntityFamilyConverter.mjs";
 
 /**
  * @type {Function<AbstractConverter>[]}
@@ -58,6 +59,7 @@ const converters = [
     FixWrongRootFolderConverter,
     MetadataConverter,
     RenameConverter,
+    ModernEntityFamilyConverter,
     ModernVersionedRenameConverter,
     AtlasConverter,
     BannerPatternConverter,

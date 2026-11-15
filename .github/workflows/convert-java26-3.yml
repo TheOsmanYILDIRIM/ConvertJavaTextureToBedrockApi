@@ -83,7 +83,8 @@ jobs:
               expected_signs|={f"textures/entity/{'sign' if w=='oak' else w+'_sign' if w in modern_suffix else 'sign_'+('darkoak' if w=='dark_oak' else w)}.png" for w in woods}
               expected_copper={f"textures/entity/chest/copper_{variant}{suffix}.png" for variant in ["default","exposed","weathered","oxidized"] for suffix in ["","_double"]}
               expected_opaque={"textures/blocks/leaves_oak_opaque.png","textures/blocks/leaves_birch_opaque.png"}
-              required=expected_beds | expected_signs | expected_copper | expected_opaque | {"textures/particle/particles.png"}
+              entity_family_required={"textures/entity/camel/camel.png","textures/entity/camel_husk/camel_husk.png","textures/entity/horse2/horse_black.png","textures/entity/horse2/mule.png","textures/entity/horse2/armor/horse_armor_copper.png","textures/entity/horse2/armor/horse_armor_netherite.png","textures/entity/pig/pig_saddle.png","textures/entity/saddle_v2.png","textures/entity/dolphin.png","textures/entity/fox/arctic_fox.png","textures/entity/lead_knot.png","textures/entity/cow/cow_v2.png","textures/entity/cow/brown_mooshroom_v2.png","textures/entity/cow/mooshroom_v2.png","textures/entity/villager2/biomes/biome_savanna_baby.png","textures/entity/villager2/biomes/biome_swamp_baby.png","textures/entity/zombie_villager2/biomes/biome_plains_baby.png","textures/entity/zombie_villager2/biomes/biome_savanna_baby.png","textures/entity/zombie_villager2/biomes/biome_swamp_baby.png","textures/entity/villager2/professions/unskilled.tga","textures/entity/zombie_villager2/professions/unskilled.tga"}
+              required=expected_beds | expected_signs | expected_copper | expected_opaque | entity_family_required | {"textures/particle/particles.png"}
               missing=sorted(required-a)
               assert not missing, f"Missing generated family textures: {missing}"
 
@@ -122,8 +123,30 @@ jobs:
               oak_delta=ImageChops.difference(oak,oak_ref)
               assert max(channel[1] for channel in oak_delta.getextrema())<=1, f"Opaque oak diverges from Bedrock: {oak_delta.getextrema()}"
 
-              print(json.dumps({"pngs":count,"total":len(a),"beds":len(expected_beds),"signs":len(expected_signs),"copper_chests":len(expected_copper),"pixel_verified":{"hanging_signs":13,"bamboo_fence_gate":True,"oak_opaque_max_channel_delta":1}}))
+              alpha_family=["textures/entity/camel/camel.png","textures/entity/camel_husk/camel_husk.png",
+                            "textures/entity/horse2/horse_black.png","textures/entity/horse2/mule.png",
+                            "textures/entity/dolphin.png","textures/entity/fox/arctic_fox.png",
+                            "textures/entity/cow/cow_v2.png"]
+              for name in alpha_family:
+                  out=output_rgba(name); ref=reference_rgba(name)
+                  assert out.size==ref.size,(name,out.size,ref.size)
+                  assert out.getchannel("A").tobytes()==ref.getchannel("A").tobytes(), f"Entity UV alpha mismatch: {name}"
+              for name in ["textures/entity/pig/pig_saddle.png","textures/entity/lead_knot.png"]:
+                  out=output_rgba(name); ref=reference_rgba(name)
+                  assert ImageChops.difference(out,ref).getbbox() is None, f"Entity exact mismatch: {name}"
+
+              print(json.dumps({"pngs":count,"total":len(a),"beds":len(expected_beds),"signs":len(expected_signs),"copper_chests":len(expected_copper),"entity_family_targets":len(entity_family_required),"pixel_verified":{"hanging_signs":13,"bamboo_fence_gate":True,"oak_opaque_max_channel_delta":1,"entity_alpha_family":len(alpha_family),"entity_exact":2}}))
           PY
+      - name: Build entity UV review boards
+        if: always()
+        run: |
+          if [ -f build/java26_3-to-bedrock1_26_50_4.mcpack ]; then
+            python3 scripts/build-uv-review.py \
+              --mcpack build/java26_3-to-bedrock1_26_50_4.mcpack \
+              --java-root java-vanilla/assets/minecraft/textures \
+              --bedrock-root bedrock-vanilla/resource_pack/textures \
+              --out build/uv-review
+          fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -132,5 +155,6 @@ jobs:
             build/java_26_3_vanilla.zip
             build/java26_3-to-bedrock1_26_50_4.mcpack
             build/conversion.log
+            build/uv-review
           if-no-files-found: warn
           retention-days: 7

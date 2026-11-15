@@ -2,6 +2,19 @@
 // Only converted entries with zero reported issues; no best-guess / needs-review records.
 // NOT independently validated in Minecraft. Applied only with explicit matching options.
 export const JAVA_26_3_TO_BEDROCK_1_26_50_4 = [
+  // Family-derived mappings validated against the pinned Bedrock entity definitions.
+  ["textures/entity/cow/cow_temperate.png", "textures/entity/cow/cow_v2.png"],
+  ["textures/entity/cow/mooshroom_brown.png", "textures/entity/cow/brown_mooshroom_v2.png"],
+  ["textures/entity/cow/mooshroom_red.png", "textures/entity/cow/mooshroom_v2.png"],
+  ["textures/entity/dolphin/dolphin.png", "textures/entity/dolphin.png"],
+  ["textures/entity/fox/fox_snow.png", "textures/entity/fox/arctic_fox.png"],
+  ["textures/entity/fox/fox_snow_sleep.png", "textures/entity/fox/arctic_fox_sleep.png"],
+  ["textures/entity/villager2/baby/savanna.png", "textures/entity/villager2/biomes/biome_savanna_baby.png"],
+  ["textures/entity/villager2/baby/swamp.png", "textures/entity/villager2/biomes/biome_swamp_baby.png"],
+  ["textures/entity/zombie_villager2/baby/plains.png", "textures/entity/zombie_villager2/biomes/biome_plains_baby.png"],
+  ["textures/entity/zombie_villager2/baby/savanna.png", "textures/entity/zombie_villager2/biomes/biome_savanna_baby.png"],
+  ["textures/entity/zombie_villager2/baby/swamp.png", "textures/entity/zombie_villager2/biomes/biome_swamp_baby.png"],
+
   [
     "textures/blocks/black_candle_lit.png",
     "textures/blocks/candles/black_candle_lit.png"
