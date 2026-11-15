@@ -28,7 +28,23 @@ CASES = [
     ("oxidized_copper_chest_front", "entity/chest/copper_oxidized.png", "blocks/oxidized_copper_chest_inventory_front.png", "blocks/oxidized_copper_chest_inventory_front.png"),
     ("panda_aggressive_baby", "entity/panda/aggressive_panda_baby.png", "entity/panda/panda_aggressive_baby.png", "entity/panda/panda_aggressive_baby.png"),
     ("llama_decor_red", "entity/equipment/llama_body/red.png", "entity/llama/decor/decor_red.png", "entity/llama/decor/decor_red.png"),
+    ("dragon_base", "entity/enderdragon/dragon.png", "entity/dragon/dragon.tga", "entity/dragon/dragon.tga"),
+    ("dragon_exploding", "entity/enderdragon/dragon_exploding.png", "entity/dragon/dragon_exploding.png", "entity/dragon/dragon_exploding.png"),
 ]
+
+for coat in ["black","brown","chestnut","creamy","darkbrown","gray","white","skeleton","zombie"]:
+    CASES.append((f"horse_{coat}", f"entity/horse/horse_{coat}.png", f"entity/horse2/horse_{coat}.png", f"entity/horse2/horse_{coat}.png"))
+CASES.append(("horse_mule", "entity/horse/mule.png", "entity/horse2/mule.png", "entity/horse2/mule.png"))
+
+for java_name, bed_name in [
+    ("armorer","armorer"),("butcher","butcher"),("cartographer","cartographer"),
+    ("cleric","cleric"),("farmer","farmer"),("fisherman","fisherman"),
+    ("fletcher","fletcher"),("leatherworker","leatherworker"),("librarian","librarian"),
+    ("mason","stonemason"),("nitwit","nitwit"),("shepherd","shepherd"),
+    ("toolsmith","toolsmith"),("weaponsmith","weaponsmith")
+]:
+    CASES.append((f"villager_{bed_name}", f"entity/villager/profession/{java_name}.png", f"entity/villager2/professions/{bed_name}.tga", f"entity/villager2/professions/{bed_name}.tga"))
+    CASES.append((f"zombie_villager_{bed_name}", f"entity/zombie_villager/profession/{java_name}.png", f"entity/zombie_villager2/professions/{bed_name}.tga", f"entity/zombie_villager2/professions/{bed_name}.tga"))
 
 def rgba(path): return Image.open(path).convert("RGBA")
 def zrgba(z, name): return Image.open(BytesIO(z.read("textures/" + name))).convert("RGBA")

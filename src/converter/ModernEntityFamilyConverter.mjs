@@ -53,6 +53,23 @@ class ModernEntityFamilyConverter extends AbstractConverter {
     }
 
 
+
+    async duplicateDragonUv(path) {
+        if (!await this.output.exists(path)) return false;
+        const image = await this.readImage(path);
+        const factor = image.getWidth() / 256;
+        if (!Number.isInteger(factor) || factor < 1 || image.getHeight() !== 256 * factor) return false;
+        // Current Bedrock dragon geometry addresses a second copy of this
+        // 56x111 UV island. Java leaves the destination slot transparent.
+        image.composite(
+            image.clone().crop(0, 89 * factor, 56 * factor, 111 * factor),
+            56 * factor,
+            89 * factor
+        );
+        await this.writeImage(path, image);
+        return true;
+    }
+
     async createCowV2(from, to) {
         if (!await this.output.exists(from)) return false;
         const image = await this.readImage(from);
@@ -130,6 +147,9 @@ class ModernEntityFamilyConverter extends AbstractConverter {
         ]) {
             generated += await this.createCowV2(from, to) ? 1 : 0;
         }
+
+        generated += await this.duplicateDragonUv("textures/entity/dragon/dragon.png") ? 1 : 0;
+        generated += await this.duplicateDragonUv("textures/entity/dragon/dragon_exploding.png") ? 1 : 0;
 
         // Same-UV equipment merged into Bedrock entity atlases.
         generated += await this.compositeSameUv(
