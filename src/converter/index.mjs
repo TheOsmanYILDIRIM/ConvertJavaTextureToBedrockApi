@@ -51,6 +51,7 @@ import { WaterConverter } from "./WaterConverter.mjs";
 import { WeatherConverter } from "./WeatherConverter.mjs";
 import { ModernVersionedRenameConverter } from "./ModernVersionedRenameConverter.mjs";
 import { ModernEntityFamilyConverter } from "./ModernEntityFamilyConverter.mjs";
+import { ModernStructuralFamilyConverter } from "./ModernStructuralFamilyConverter.mjs";
 
 /**
  * @type {Function<AbstractConverter>[]}
@@ -60,6 +61,7 @@ const converters = [
     MetadataConverter,
     RenameConverter,
     ModernEntityFamilyConverter,
+    ModernStructuralFamilyConverter,
     ModernVersionedRenameConverter,
     AtlasConverter,
     BannerPatternConverter,

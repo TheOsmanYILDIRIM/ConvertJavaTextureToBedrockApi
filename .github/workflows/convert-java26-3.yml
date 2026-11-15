@@ -84,7 +84,8 @@ jobs:
               expected_copper={f"textures/entity/chest/copper_{variant}{suffix}.png" for variant in ["default","exposed","weathered","oxidized"] for suffix in ["","_double"]}
               expected_opaque={"textures/blocks/leaves_oak_opaque.png","textures/blocks/leaves_birch_opaque.png"}
               entity_family_required={"textures/entity/camel/camel.png","textures/entity/camel_husk/camel_husk.png","textures/entity/horse2/horse_black.png","textures/entity/horse2/mule.png","textures/entity/horse2/armor/horse_armor_copper.png","textures/entity/horse2/armor/horse_armor_netherite.png","textures/entity/pig/pig_saddle.png","textures/entity/saddle_v2.png","textures/entity/dolphin.png","textures/entity/fox/arctic_fox.png","textures/entity/lead_knot.png","textures/entity/cow/cow_v2.png","textures/entity/cow/brown_mooshroom_v2.png","textures/entity/cow/mooshroom_v2.png","textures/entity/villager2/biomes/biome_savanna_baby.png","textures/entity/villager2/biomes/biome_swamp_baby.png","textures/entity/zombie_villager2/biomes/biome_plains_baby.png","textures/entity/zombie_villager2/biomes/biome_savanna_baby.png","textures/entity/zombie_villager2/biomes/biome_swamp_baby.png","textures/entity/villager2/professions/unskilled.tga","textures/entity/zombie_villager2/professions/unskilled.tga"}
-              required=expected_beds | expected_signs | expected_copper | expected_opaque | entity_family_required | {"textures/particle/particles.png"}
+              structural_family_required={"textures/blocks/copper_chain1.png","textures/blocks/copper_chain2.png","textures/blocks/exposed_copper_chain1.png","textures/blocks/exposed_copper_chain2.png","textures/blocks/weathered_copper_chain1.png","textures/blocks/weathered_copper_chain2.png","textures/blocks/oxidized_copper_chain1.png","textures/blocks/oxidized_copper_chain2.png","textures/blocks/eyeblossom_blooming.png","textures/blocks/lightning_rod_powered.png","textures/items/bundle_open.png","textures/items/bundle_black_open.png","textures/items/bundle_blue_open.png","textures/items/compass_atlas.png","textures/items/recovery_compass_atlas.png","textures/particle/geyser_base.png","textures/particle/sculk_charge_pop.png","textures/particle/sculk_soul.png","textures/particle/small_gust.png","textures/particle/soul.png","textures/particle/orange_poplar_leaves_atlas.png","textures/particle/red_poplar_leaves_atlas.png","textures/particle/yellow_poplar_leaves_atlas.png"}
+              required=expected_beds | expected_signs | expected_copper | expected_opaque | entity_family_required | structural_family_required | {"textures/particle/particles.png"}
               missing=sorted(required-a)
               assert not missing, f"Missing generated family textures: {missing}"
 
@@ -135,7 +136,26 @@ jobs:
                   out=output_rgba(name); ref=reference_rgba(name)
                   assert ImageChops.difference(out,ref).getbbox() is None, f"Entity exact mismatch: {name}"
 
-              print(json.dumps({"pngs":count,"total":len(a),"beds":len(expected_beds),"signs":len(expected_signs),"copper_chests":len(expected_copper),"entity_family_targets":len(entity_family_required),"pixel_verified":{"hanging_signs":13,"bamboo_fence_gate":True,"oak_opaque_max_channel_delta":1,"entity_alpha_family":len(alpha_family),"entity_exact":2}}))
+              def assert_visible_exact(name):
+                  out=output_rgba(name); ref=reference_rgba(name)
+                  assert out.size==ref.size,(name,out.size,ref.size)
+                  assert out.getchannel("A").tobytes()==ref.getchannel("A").tobytes(), f"Alpha mismatch: {name}"
+                  op=out.load(); rp=ref.load()
+                  for yy in range(out.height):
+                      for xx in range(out.width):
+                          if rp[xx,yy][3] and op[xx,yy] != rp[xx,yy]:
+                              raise AssertionError(f"Visible pixel mismatch: {name} @ {(xx,yy)}")
+
+              for name in ["textures/blocks/copper_chain1.png","textures/blocks/copper_chain2.png",
+                           "textures/blocks/oxidized_copper_chain1.png","textures/blocks/oxidized_copper_chain2.png",
+                           "textures/blocks/eyeblossom_blooming.png","textures/blocks/lightning_rod_powered.png",
+                           "textures/items/bundle_blue_open.png","textures/items/compass_atlas.png","textures/items/recovery_compass_atlas.png",
+                           "textures/particle/sculk_charge_pop.png","textures/particle/sculk_soul.png",
+                           "textures/particle/small_gust.png","textures/particle/soul.png",
+                           "textures/particle/red_poplar_leaves_atlas.png","textures/particle/yellow_poplar_leaves_atlas.png"]:
+                  assert_visible_exact(name)
+
+              print(json.dumps({"pngs":count,"total":len(a),"beds":len(expected_beds),"signs":len(expected_signs),"copper_chests":len(expected_copper),"entity_family_targets":len(entity_family_required),"structural_family_targets":len(structural_family_required),"pixel_verified":{"hanging_signs":13,"bamboo_fence_gate":True,"oak_opaque_max_channel_delta":1,"entity_alpha_family":len(alpha_family),"entity_exact":2,"structural_visible_exact":15}}))
           PY
       - name: Build entity UV review boards
         if: always()
