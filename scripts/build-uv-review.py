@@ -63,7 +63,9 @@ def metrics(a,b):
     if a.size != b.size: return {"same_size":False,"source_or_output_size":a.size,"bedrock_size":b.size}
     diff=ImageChops.difference(a,b)
     aa=a.getchannel("A"); ba=b.getchannel("A")
-    return {"same_size":True,"pixel_exact":diff.getbbox() is None,"alpha_exact":ImageChops.difference(aa,ba).getbbox() is None}
+    alpha_mask_exact=all((x>0)==(y>0) for x,y in zip(aa.getdata(),ba.getdata()))
+    visible_rgb_diffs=sum(1 for op,rp in zip(a.getdata(),b.getdata()) if rp[3] and op[:3] != rp[:3])
+    return {"same_size":True,"pixel_exact":diff.getbbox() is None,"alpha_exact":ImageChops.difference(aa,ba).getbbox() is None,"alpha_mask_exact":alpha_mask_exact,"visible_rgb_diffs":visible_rgb_diffs}
 
 def main():
     ap=argparse.ArgumentParser(); ap.add_argument("--mcpack",required=True); ap.add_argument("--java-root",required=True); ap.add_argument("--bedrock-root",required=True); ap.add_argument("--out",required=True); args=ap.parse_args()

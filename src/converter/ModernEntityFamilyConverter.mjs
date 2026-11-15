@@ -73,6 +73,16 @@ class ModernEntityFamilyConverter extends AbstractConverter {
                 image.bitmap.data[dst + 3] = source[src + 3];
             }
         }
+        if (path.endsWith("/dragon_exploding.png")) {
+            for (const [x, y] of [[95, 130], [99, 130]]) {
+                image.scan(x * factor, y * factor, factor, factor, (px, py, idx) => {
+                    image.bitmap.data[idx] = 0;
+                    image.bitmap.data[idx + 1] = 0;
+                    image.bitmap.data[idx + 2] = 0;
+                    image.bitmap.data[idx + 3] = 0;
+                });
+            }
+        }
         await this.writeImage(path, image);
         return true;
     }

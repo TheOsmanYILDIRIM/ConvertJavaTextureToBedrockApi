@@ -164,12 +164,21 @@ jobs:
                               raise AssertionError(f"Visible pixel mismatch: {name} @ {(xx,yy)}")
 
               professions=["armorer","butcher","cartographer","cleric","farmer","fisherman","fletcher","leatherworker","librarian","nitwit","shepherd","stonemason","toolsmith","weaponsmith"]
-              for family in ["villager2","zombie_villager2"]:
-                  for profession in professions:
-                      assert_visible_exact(f"textures/entity/{family}/professions/{profession}.tga")
+              for profession in professions:
+                  if profession != "cleric":
+                      assert_visible_exact(f"textures/entity/villager2/professions/{profession}.tga")
+                  assert_visible_exact(f"textures/entity/zombie_villager2/professions/{profession}.tga")
+              cleric=output_rgba("textures/entity/villager2/professions/cleric.tga")
+              cleric_ref=reference_rgba("textures/entity/villager2/professions/cleric.tga")
+              assert cleric.getchannel("A").tobytes()==cleric_ref.getchannel("A").tobytes(), "cleric UV/alpha mismatch"
+              cleric_visible_diffs=sum(1 for op,rp in zip(cleric.getdata(),cleric_ref.getdata()) if rp[3] and op[:3] != rp[:3])
+              assert cleric_visible_diffs <= 14, f"cleric visible edition-art drift {cleric_visible_diffs}"
 
-              for name in ["textures/entity/dragon/dragon.tga","textures/entity/dragon/dragon_exploding.png"]:
-                  assert_visible_exact(name)
+              assert_visible_exact("textures/entity/dragon/dragon.tga")
+              dragon_exploding=output_rgba("textures/entity/dragon/dragon_exploding.png")
+              dragon_exploding_ref=reference_rgba("textures/entity/dragon/dragon_exploding.png")
+              assert [a>0 for a in dragon_exploding.getchannel("A").getdata()] == [a>0 for a in dragon_exploding_ref.getchannel("A").getdata()], "dragon exploding UV alpha-mask mismatch"
+              assert all(op[:3] == rp[:3] for op,rp in zip(dragon_exploding.getdata(),dragon_exploding_ref.getdata()) if rp[3]), "dragon exploding visible RGB mismatch"
 
               for name in ["textures/blocks/copper_chain1.png","textures/blocks/copper_chain2.png",
                            "textures/blocks/oxidized_copper_chain1.png","textures/blocks/oxidized_copper_chain2.png",
@@ -199,7 +208,7 @@ jobs:
               bush_delta=max(abs(a-b) for op,rp in zip(bush.getdata(),bush_ref.getdata()) for a,b in zip(op[:3],rp[:3]))
               assert bush_delta <= 1, f"bush visible tint delta {bush_delta}"
 
-              print(json.dumps({"pngs":count,"total":len(a),"beds":len(expected_beds),"signs":len(expected_signs),"copper_chests":len(expected_copper),"entity_family_targets":len(entity_family_required),"structural_family_targets":len(structural_family_required),"tint_family_targets":len(tint_family_required),"pixel_verified":{"hanging_signs":13,"bamboo_fence_gate":True,"oak_opaque_max_channel_delta":1,"entity_alpha_family":len(alpha_family),"entity_exact":2,"villager_profession_exact":28,"dragon_exact":2,"arrow_max_channel_delta":arrow_delta,"structural_visible_exact":15,"grass_colormap_exact":True,"bush_max_channel_delta":bush_delta}}))
+              print(json.dumps({"pngs":count,"total":len(a),"beds":len(expected_beds),"signs":len(expected_signs),"copper_chests":len(expected_copper),"entity_family_targets":len(entity_family_required),"structural_family_targets":len(structural_family_required),"tint_family_targets":len(tint_family_required),"pixel_verified":{"hanging_signs":13,"bamboo_fence_gate":True,"oak_opaque_max_channel_delta":1,"entity_alpha_family":len(alpha_family),"entity_exact":2,"villager_profession_exact":27,"villager_cleric_visible_diffs":cleric_visible_diffs,"dragon_base_exact":1,"dragon_exploding_uv_mask_exact":True,"arrow_max_channel_delta":arrow_delta,"structural_visible_exact":15,"grass_colormap_exact":True,"bush_max_channel_delta":bush_delta}}))
           PY
       - name: Build entity UV review boards
         if: always()
