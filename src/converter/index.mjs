@@ -52,6 +52,7 @@ import { WeatherConverter } from "./WeatherConverter.mjs";
 import { ModernVersionedRenameConverter } from "./ModernVersionedRenameConverter.mjs";
 import { ModernEntityFamilyConverter } from "./ModernEntityFamilyConverter.mjs";
 import { ModernStructuralFamilyConverter } from "./ModernStructuralFamilyConverter.mjs";
+import { ModernBiomeTintConverter } from "./ModernBiomeTintConverter.mjs";
 
 /**
  * @type {Function<AbstractConverter>[]}
@@ -99,6 +100,7 @@ const converters = [
     DialogConverter,
     OverlayToTranslateConverter,
     ColorizeOverlayConverter,
+    ModernBiomeTintConverter,
     PlaceholderConverter,
     SideRotateConverter,
     ArrowConverter,

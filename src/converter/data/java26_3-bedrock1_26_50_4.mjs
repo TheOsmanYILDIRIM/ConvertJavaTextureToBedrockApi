@@ -2,6 +2,7 @@
 // Only converted entries with zero reported issues; no best-guess / needs-review records.
 // NOT independently validated in Minecraft. Applied only with explicit matching options.
 export const JAVA_26_3_TO_BEDROCK_1_26_50_4 = [
+  ["textures/blocks/short_grass.png", "textures/blocks/tallgrass.png"],
   // Family-derived mappings validated against the pinned Bedrock entity definitions.
   ["textures/entity/cow/cow_temperate.png", "textures/entity/cow/cow_v2.png"],
   ["textures/entity/cow/mooshroom_brown.png", "textures/entity/cow/brown_mooshroom_v2.png"],

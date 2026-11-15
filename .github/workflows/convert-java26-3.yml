@@ -87,7 +87,8 @@ jobs:
               expected_opaque={"textures/blocks/leaves_oak_opaque.png","textures/blocks/leaves_birch_opaque.png"}
               entity_family_required={"textures/entity/camel/camel.png","textures/entity/camel_husk/camel_husk.png","textures/entity/horse2/horse_black.png","textures/entity/horse2/mule.png","textures/entity/horse2/armor/horse_armor_copper.png","textures/entity/horse2/armor/horse_armor_netherite.png","textures/entity/pig/pig_saddle.png","textures/entity/saddle_v2.png","textures/entity/dolphin.png","textures/entity/fox/arctic_fox.png","textures/entity/lead_knot.png","textures/entity/cow/cow_v2.png","textures/entity/cow/brown_mooshroom_v2.png","textures/entity/cow/mooshroom_v2.png","textures/entity/villager2/biomes/biome_savanna_baby.png","textures/entity/villager2/biomes/biome_swamp_baby.png","textures/entity/zombie_villager2/biomes/biome_plains_baby.png","textures/entity/zombie_villager2/biomes/biome_savanna_baby.png","textures/entity/zombie_villager2/biomes/biome_swamp_baby.png","textures/entity/villager2/professions/unskilled.tga","textures/entity/zombie_villager2/professions/unskilled.tga"}
               structural_family_required={"textures/blocks/copper_chain1.png","textures/blocks/copper_chain2.png","textures/blocks/exposed_copper_chain1.png","textures/blocks/exposed_copper_chain2.png","textures/blocks/weathered_copper_chain1.png","textures/blocks/weathered_copper_chain2.png","textures/blocks/oxidized_copper_chain1.png","textures/blocks/oxidized_copper_chain2.png","textures/blocks/eyeblossom_blooming.png","textures/blocks/lightning_rod_powered.png","textures/items/bundle_open.png","textures/items/bundle_black_open.png","textures/items/bundle_blue_open.png","textures/items/compass_atlas.png","textures/items/recovery_compass_atlas.png","textures/particle/geyser_base.png","textures/particle/sculk_charge_pop.png","textures/particle/sculk_soul.png","textures/particle/small_gust.png","textures/particle/soul.png","textures/particle/orange_poplar_leaves_atlas.png","textures/particle/red_poplar_leaves_atlas.png","textures/particle/yellow_poplar_leaves_atlas.png"}
-              required=expected_beds | expected_signs | expected_copper | expected_opaque | entity_family_required | structural_family_required | {"textures/particle/particles.png"}
+              tint_family_required={"textures/blocks/grass_carried.png","textures/blocks/double_plant_fern_carried.png","textures/blocks/double_plant_grass_carried.png","textures/blocks/fern_carried.tga","textures/blocks/tallgrass.tga","textures/blocks/tallgrass_carried.tga","textures/blocks/vine_carried.png","textures/blocks/leaves_oak_carried.tga","textures/blocks/leaves_spruce_carried.tga","textures/items/bush.png"}
+              required=expected_beds | expected_signs | expected_copper | expected_opaque | entity_family_required | structural_family_required | tint_family_required | {"textures/particle/particles.png"}
               missing=sorted(required-a)
               assert not missing, f"Missing generated family textures: {missing}"
 
@@ -157,7 +158,16 @@ jobs:
                            "textures/particle/red_poplar_leaves_atlas.png","textures/particle/yellow_poplar_leaves_atlas.png"]:
                   assert_visible_exact(name)
 
-              print(json.dumps({"pngs":count,"total":len(a),"beds":len(expected_beds),"signs":len(expected_signs),"copper_chests":len(expected_copper),"entity_family_targets":len(entity_family_required),"structural_family_targets":len(structural_family_required),"pixel_verified":{"hanging_signs":13,"bamboo_fence_gate":True,"oak_opaque_max_channel_delta":1,"entity_alpha_family":len(alpha_family),"entity_exact":2,"structural_visible_exact":15}}))
+              grass=output_rgba("textures/blocks/grass_carried.png")
+              grass_ref=reference_rgba("textures/blocks/grass_carried.png")
+              assert ImageChops.difference(grass,grass_ref).getbbox() is None, "grass carried colormap tint mismatch"
+              bush=output_rgba("textures/items/bush.png")
+              bush_ref=reference_rgba("textures/items/bush.png")
+              assert bush.getchannel("A").tobytes()==bush_ref.getchannel("A").tobytes(), "bush alpha mismatch"
+              bush_delta=max(abs(a-b) for op,rp in zip(bush.getdata(),bush_ref.getdata()) for a,b in zip(op[:3],rp[:3]))
+              assert bush_delta <= 1, f"bush visible tint delta {bush_delta}"
+
+              print(json.dumps({"pngs":count,"total":len(a),"beds":len(expected_beds),"signs":len(expected_signs),"copper_chests":len(expected_copper),"entity_family_targets":len(entity_family_required),"structural_family_targets":len(structural_family_required),"tint_family_targets":len(tint_family_required),"pixel_verified":{"hanging_signs":13,"bamboo_fence_gate":True,"oak_opaque_max_channel_delta":1,"entity_alpha_family":len(alpha_family),"entity_exact":2,"structural_visible_exact":15,"grass_colormap_exact":True,"bush_max_channel_delta":bush_delta}}))
           PY
       - name: Build entity UV review boards
         if: always()
