@@ -18,9 +18,9 @@ class ModernChestInventoryConverter extends AbstractConverter {
         const dstSize = 16 * factor;
         const out = await this.createImage(dstSize, dstSize);
         for (let y = 0; y < dstSize; y++) {
-            const sy = Math.min(srcSize - 1, Math.floor(y * srcSize / dstSize));
+            const sy = Math.min(srcSize - 1, Math.floor((y + 0.5) * srcSize / dstSize));
             for (let x = 0; x < dstSize; x++) {
-                const sx = Math.min(srcSize - 1, Math.floor(x * srcSize / dstSize));
+                const sx = Math.min(srcSize - 1, Math.floor((x + 0.5) * srcSize / dstSize));
                 const si = (sy * srcSize + sx) * 4;
                 const di = (y * dstSize + x) * 4;
                 out.bitmap.data[di] = image.bitmap.data[si];

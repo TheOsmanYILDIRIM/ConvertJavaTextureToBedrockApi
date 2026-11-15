@@ -122,11 +122,13 @@ jobs:
                   out=Image.new("RGBA",(16,16))
                   sp=source.load(); op=out.load()
                   for yy in range(16):
-                      sy=min(13,(yy*14)//16)
+                      sy=min(13,((2*yy+1)*14)//32)
                       for xx in range(16):
-                          sx=min(13,(xx*14)//16)
+                          sx=min(13,((2*xx+1)*14)//32)
                           op[xx,yy]=sp[sx,sy]
                   return out
+
+              assert [min(13,((2*x+1)*14)//32) for x in range(16)] == [0,1,2,3,3,4,5,6,7,8,9,10,10,11,12,13], "Chest resize sampling phase regressed"
 
               def expected_vertical_face(source,x,with_latch=False):
                   lid=source.crop((x,14,x+14,19)).transpose(Image.Transpose.ROTATE_180)
