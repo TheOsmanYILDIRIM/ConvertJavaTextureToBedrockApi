@@ -5,15 +5,26 @@ from io import BytesIO
 from PIL import Image, ImageChops, ImageDraw, ImageFont
 
 CASES = [
-    ("camel", "entity/camel/camel.png", "entity/camel/camel.png"),
-    ("camel_husk", "entity/camel/camel_husk.png", "entity/camel_husk/camel_husk.png"),
-    ("horse_black", "entity/horse/horse_black.png", "entity/horse2/horse_black.png"),
-    ("mule", "entity/horse/mule.png", "entity/horse2/mule.png"),
-    ("pig_saddle", "entity/pig/pig_temperate.png", "entity/pig/pig_saddle.png"),
-    ("dolphin", "entity/dolphin/dolphin.png", "entity/dolphin.png"),
-    ("arctic_fox", "entity/fox/fox_snow.png", "entity/fox/arctic_fox.png"),
-    ("lead_knot", "entity/lead_knot/lead_knot.png", "entity/lead_knot.png"),
-    ("cow_v2", "entity/cow/cow_temperate.png", "entity/cow/cow_v2.png"),
+    ("camel", "entity/camel/camel.png", "entity/camel/camel.png", "entity/camel/camel.png"),
+    ("horse_black", "entity/horse/horse_black.png", "entity/horse2/horse_black.png", "entity/horse2/horse_black.png"),
+    ("pig_active", "entity/pig/pig_temperate.png", "entity/pig/pig_v3.png", "entity/pig/pig_v3.png"),
+    ("pig_legacy", "entity/pig/pig_temperate.png", "entity/pig/pig.png", "entity/pig/pig.png"),
+    ("pig_saddle", "entity/pig/pig_temperate.png", "entity/pig/pig_saddle.png", "entity/pig/pig_saddle.png"),
+    ("rabbit_salt_active", "entity/rabbit/salt.png", "entity/rabbit/rabbit_salt.png", "entity/rabbit/rabbit_salt.png"),
+    ("cow_v2", "entity/cow/cow_temperate.png", "entity/cow/cow_v2.png", "entity/cow/cow_v2.png"),
+    ("villager_armorer", "entity/villager/profession/armorer.png", "entity/villager2/professions/armorer.tga", "entity/villager2/professions/armorer.tga"),
+    ("villager_cleric", "entity/villager/profession/cleric.png", "entity/villager2/professions/cleric.tga", "entity/villager2/professions/cleric.tga"),
+    ("zombie_villager_armorer", "entity/zombie_villager/profession/armorer.png", "entity/zombie_villager2/professions/armorer.tga", "entity/zombie_villager2/professions/armorer.tga"),
+    ("glass_pane_top", "block/glass_pane_top.png", "blocks/glass_pane_top.png", "blocks/glass_pane_top.png"),
+    ("glass_pane_top_red", "block/red_stained_glass_pane_top.png", "blocks/glass_pane_top_red.png", "blocks/glass_pane_top_red.png"),
+    ("end_sky", "environment/end_sky.png", "environment/end_sky.png", "environment/end_sky.png"),
+    ("sun_vv", "environment/celestial/sun.png", "environment/sun_vv.png", "environment/sun_vv.png"),
+    ("grass_carried", "block/grass_block_top.png", "blocks/grass_carried.png", "blocks/grass_carried.png"),
+    ("bush_item", "block/bush.png", "items/bush.png", "items/bush.png"),
+    ("copper_chest_front", "entity/chest/copper.png", "blocks/copper_chest_inventory_front.png", "blocks/copper_chest_inventory_front.png"),
+    ("oxidized_copper_chest_front", "entity/chest/copper_oxidized.png", "blocks/oxidized_copper_chest_inventory_front.png", "blocks/oxidized_copper_chest_inventory_front.png"),
+    ("panda_aggressive_baby", "entity/panda/aggressive_panda_baby.png", "entity/panda/panda_aggressive_baby.png", "entity/panda/panda_aggressive_baby.png"),
+    ("llama_decor_red", "entity/equipment/llama_body/red.png", "entity/llama/decor/decor_red.png", "entity/llama/decor/decor_red.png"),
 ]
 
 def rgba(path): return Image.open(path).convert("RGBA")
