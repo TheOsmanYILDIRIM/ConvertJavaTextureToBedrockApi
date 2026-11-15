@@ -41,11 +41,11 @@ def main():
     report={}
     with zipfile.ZipFile(args.mcpack) as z:
       names=set(z.namelist())
-      for label,jrel,brel in CASES:
-        jp=jr/jrel; bp=br/brel; oname="textures/"+brel
+      for label,jrel,orel,brel in CASES:
+        jp=jr/jrel; bp=br/brel; oname="textures/"+orel
         if not (jp.exists() and bp.exists() and oname in names):
           report[label]={"output_present":oname in names,"java_present":jp.exists(),"bedrock_present":bp.exists()}; continue
-        ji=rgba(jp); oi=zrgba(z,brel); bi=rgba(bp)
+        ji=rgba(jp); oi=zrgba(z,orel); bi=rgba(bp)
         diff=ImageChops.difference(oi,bi) if oi.size==bi.size else Image.new("RGBA",bi.size,(255,0,255,255))
         canvas=Image.new("RGBA",(4*208,240),(30,30,30,255)); draw=ImageDraw.Draw(canvas)
         for i,(title,img) in enumerate([("JAVA",ji),("OUTPUT",oi),("BEDROCK",bi),("DIFF",diff)]):

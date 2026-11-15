@@ -51,8 +51,8 @@ import { WaterConverter } from "./WaterConverter.mjs";
 import { WeatherConverter } from "./WeatherConverter.mjs";
 import { ModernVersionedRenameConverter } from "./ModernVersionedRenameConverter.mjs";
 import { ModernEntityFamilyConverter } from "./ModernEntityFamilyConverter.mjs";
-import { ModernStructuralFamilyConverter } from "./ModernStructuralFamilyConverter.mjs";
-import { ModernBiomeTintConverter } from "./ModernBiomeTintConverter.mjs";
+import { ModernStructuralFamilyConverter } from "./ModernStructuralFamilyConverter.mjs";\nimport { ModernChestInventoryConverter } from "./ModernChestInventoryConverter.mjs";
+import { ModernBiomeTintConverter } from "./ModernBiomeTintConverter.mjs";\nimport { ModernExactParityConverter } from "./ModernExactParityConverter.mjs";
 
 /**
  * @type {Function<AbstractConverter>[]}
