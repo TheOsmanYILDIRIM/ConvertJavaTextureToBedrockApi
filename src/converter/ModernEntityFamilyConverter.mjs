@@ -52,6 +52,26 @@ class ModernEntityFamilyConverter extends AbstractConverter {
         return true;
     }
 
+
+    async createCowV2(from, to) {
+        if (!await this.output.exists(from)) return false;
+        const image = await this.readImage(from);
+        const factor = image.getWidth() / 64;
+        if (!Number.isInteger(factor) || factor < 1 || image.getHeight() !== 64 * factor) return false;
+        const clear = (x, y, w, h) => image.scan(x * factor, y * factor, w * factor, h * factor, (px, py, idx) => {
+            image.bitmap.data[idx] = 0;
+            image.bitmap.data[idx + 1] = 0;
+            image.bitmap.data[idx + 2] = 0;
+            image.bitmap.data[idx + 3] = 0;
+        });
+        // Java's current cow family has one legacy UV fringe unused by Bedrock cow.v2.
+        clear(2, 32, 12, 1);
+        clear(0, 34, 1, 3);
+        clear(15, 34, 1, 3);
+        await this.writeImage(to, image);
+        return true;
+    }
+
     async createPigSaddle() {
         const basePath = "textures/entity/pig/pig_temperate.png";
         const saddlePath = "textures/entity/equipment/pig_saddle/saddle.png";
@@ -101,6 +121,15 @@ class ModernEntityFamilyConverter extends AbstractConverter {
     async convert() {
         if (!this.isTargetProfile()) return [];
         let generated = 0;
+
+
+        for (const [from, to] of [
+            ["textures/entity/cow/cow_temperate.png", "textures/entity/cow/cow_v2.png"],
+            ["textures/entity/cow/mooshroom_red.png", "textures/entity/cow/mooshroom_v2.png"],
+            ["textures/entity/cow/mooshroom_brown.png", "textures/entity/cow/brown_mooshroom_v2.png"]
+        ]) {
+            generated += await this.createCowV2(from, to) ? 1 : 0;
+        }
 
         // Same-UV equipment merged into Bedrock entity atlases.
         generated += await this.compositeSameUv(
