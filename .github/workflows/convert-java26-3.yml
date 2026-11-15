@@ -65,6 +65,55 @@ jobs:
         env:
           NODE_OPTIONS: --max-old-space-size=6144
         run: node scripts/convert-26-3.mjs build/java_26_3_vanilla.zip build/java26_3-to-bedrock1_26_50_4.mcpack >build/conversion.log 2>&1 || { tail -n 150 build/conversion.log; exit 1; }
+      - name: Prepare OptiFine random block variation fixture
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile,ZIP_DEFLATED
+          from PIL import Image
+          from io import BytesIO
+          import json
+          Path("build").mkdir(exist_ok=True)
+          def png(color):
+              im=Image.new("RGBA",(32,32),color)
+              b=BytesIO(); im.save(b,format="PNG"); return b.getvalue()
+          with ZipFile("build/optifine_random_fixture.zip","w",ZIP_DEFLATED) as z:
+              z.writestr("pack.mcmeta",json.dumps({"pack":{"description":"OptiFine random native variation fixture","min_format":[97,1],"max_format":[97,1]}}))
+              z.writestr("assets/minecraft/textures/block/gravel.png",png((100,100,100,255)))
+              z.writestr("assets/minecraft/optifine/ctm/gravel/gravel.properties","method=random\nmatchTiles=gravel\ntiles=0 1 <default>\nweights=5 2 1\n")
+              z.writestr("assets/minecraft/optifine/ctm/gravel/0.png",png((255,0,0,255)))
+              z.writestr("assets/minecraft/optifine/ctm/gravel/1.png",png((0,255,0,255)))
+              z.writestr("assets/minecraft/optifine/ctm/ignored/ignored.properties","method=ctm\nmatchTiles=gravel\ntiles=0-46\n")
+              z.writestr("assets/minecraft/optifine/ctm/ignored/0.png",png((0,0,255,255)))
+          PY
+      - name: Convert OptiFine random block variation fixture
+        run: node scripts/convert-26-3.mjs build/optifine_random_fixture.zip build/optifine_random_fixture.mcpack >build/optifine-random.log 2>&1 || { cat build/optifine-random.log; exit 1; }
+      - name: Verify Bedrock native random variations and HD preservation
+        run: |
+          python3 - <<'PY'
+          from zipfile import ZipFile
+          from io import BytesIO
+          from PIL import Image
+          import json
+          with ZipFile("build/optifine_random_fixture.mcpack") as z:
+              names=set(z.namelist())
+              catalog=json.loads(z.read("textures/terrain_texture.json"))
+              variations=catalog["texture_data"]["gravel"]["textures"]["variations"]
+              assert variations == [
+                  {"path":"textures/blocks/optifine_random/gravel/gravel/variant_0","weight":5},
+                  {"path":"textures/blocks/optifine_random/gravel/gravel/variant_1","weight":2},
+                  {"path":"textures/blocks/gravel","weight":1},
+              ], variations
+              for index,color in [(0,(255,0,0,255)),(1,(0,255,0,255))]:
+                  path=f"textures/blocks/optifine_random/gravel/gravel/variant_{index}.png"
+                  assert path in names,path
+                  im=Image.open(BytesIO(z.read(path))).convert("RGBA")
+                  assert im.size==(32,32),im.size
+                  assert im.getpixel((0,0))==color,(path,im.getpixel((0,0)))
+              assert "assets/minecraft/optifine/ctm/gravel/gravel.properties" not in names
+              assert not any("optifine_random/ignored" in n for n in names)
+          print(json.dumps({"native_variations":"ok","weights":[5,2,1],"hd_variant_size":[32,32]}))
+          PY
       - name: Prepare 3x full Java UV scale test pack
         run: |
           python3 - <<'PY'

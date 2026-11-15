@@ -55,6 +55,7 @@ import { ModernStructuralFamilyConverter } from "./ModernStructuralFamilyConvert
 import { ModernChestInventoryConverter } from "./ModernChestInventoryConverter.mjs";
 import { ModernBiomeTintConverter } from "./ModernBiomeTintConverter.mjs";
 import { ModernExactParityConverter } from "./ModernExactParityConverter.mjs";
+import { OptifineRandomBlockVariantConverter } from "./OptifineRandomBlockVariantConverter.mjs";
 
 /**
  * @type {Function<AbstractConverter>[]}
@@ -115,6 +116,7 @@ const converters = [
     BannerPatternPreviewMaxSizeConverter,
     PngToTgaConverter,
     CopyConverter,
+    OptifineRandomBlockVariantConverter,
     DeleteConverter
 ];
 
