@@ -1,32 +1,53 @@
 import { AbstractConverter } from "@modifiedcommand/convert-base-api";
 
 /**
- * Split Java chest entity atlases into Bedrock inventory/block-face textures.
- * Java's model face is 14 units wide; current Bedrock inventory textures are
- * 16x16.  The final resize is nearest-neighbour so custom pixel art stays crisp.
+ * Derive Bedrock 16x16 inventory/block chest faces from Java's 64x64 entity atlas.
+ *
+ * Bedrock does not scale the Java 14px faces to 16px. The 14px face stays at its
+ * native pixel phase and sits inside a one-pixel UV rim. Front/side also keep the
+ * complete 5px lid + 10px base height (15px), with the remaining row used as the
+ * top rim. This preserves custom-pack pixels instead of baking Bedrock vanilla art.
  */
 class ModernChestInventoryConverter extends AbstractConverter {
     isTargetProfile() {
         return this.options?.javaVersion === "26.3" && this.options?.bedrockVersion === "1.26.50.4";
     }
 
-    async nearest14To16(image, factor) {
-        const srcSize = 14 * factor;
-        const dstSize = 16 * factor;
-        const out = await this.createImage(dstSize, dstSize);
-        for (let y = 0; y < dstSize; y++) {
-            const sy = Math.min(srcSize - 1, Math.floor(y * srcSize / dstSize));
-            for (let x = 0; x < dstSize; x++) {
-                const sx = Math.min(srcSize - 1, Math.floor(x * srcSize / dstSize));
-                const si = (sy * srcSize + sx) * 4;
-                const di = (y * dstSize + x) * 4;
-                out.bitmap.data[di] = image.bitmap.data[si];
-                out.bitmap.data[di + 1] = image.bitmap.data[si + 1];
-                out.bitmap.data[di + 2] = image.bitmap.data[si + 2];
-                out.bitmap.data[di + 3] = image.bitmap.data[si + 3];
-            }
-        }
+    async padTopAndSides(core, factor) {
+        const out = await this.createImage(16 * factor, 16 * factor);
+        out.composite(core, factor, factor);
+        out.composite(core.clone().crop(0, 0, 14 * factor, factor), factor, 0);
+        out.composite(core.clone().crop(0, 0, factor, 15 * factor), 0, factor);
+        out.composite(core.clone().crop(13 * factor, 0, factor, 15 * factor), 15 * factor, factor);
+        out.composite(core.clone().crop(0, 0, factor, factor), 0, 0);
+        out.composite(core.clone().crop(13 * factor, 0, factor, factor), 15 * factor, 0);
         return out;
+    }
+
+    async padAllSides(core, factor) {
+        const out = await this.createImage(16 * factor, 16 * factor);
+        out.composite(core, factor, factor);
+        out.composite(core.clone().crop(0, 0, 14 * factor, factor), factor, 0);
+        out.composite(core.clone().crop(0, 13 * factor, 14 * factor, factor), factor, 15 * factor);
+        out.composite(core.clone().crop(0, 0, factor, 14 * factor), 0, factor);
+        out.composite(core.clone().crop(13 * factor, 0, factor, 14 * factor), 15 * factor, factor);
+        out.composite(core.clone().crop(0, 0, factor, factor), 0, 0);
+        out.composite(core.clone().crop(13 * factor, 0, factor, factor), 15 * factor, 0);
+        out.composite(core.clone().crop(0, 13 * factor, factor, factor), 0, 15 * factor);
+        out.composite(core.clone().crop(13 * factor, 13 * factor, factor, factor), 15 * factor, 15 * factor);
+        return out;
+    }
+
+    async buildVerticalFace(source, x, factor) {
+        const core = await this.createImage(14 * factor, 15 * factor);
+        core.composite(source.clone().crop(x * factor, 14 * factor, 14 * factor, 5 * factor).rotateSimple(180), 0, 0);
+        core.composite(source.clone().crop(x * factor, 33 * factor, 14 * factor, 10 * factor).rotateSimple(180), 0, 5 * factor);
+        return this.padTopAndSides(core, factor);
+    }
+
+    async buildTopFace(source, factor) {
+        const core = source.clone().crop(28 * factor, 0, 14 * factor, 14 * factor).flip(true, false);
+        return this.padAllSides(core, factor);
     }
 
     async extract(from, targets) {
@@ -36,27 +57,17 @@ class ModernChestInventoryConverter extends AbstractConverter {
         const factor = source.getWidth() / 64;
         if (!Number.isInteger(factor) || factor < 1 || source.getHeight() !== 64 * factor) return 0;
 
-        const front14 = await this.createImage(14 * factor, 14 * factor);
-        front14.composite(source.clone().crop(14 * factor, 14 * factor, 14 * factor, 5 * factor), 0, 0);
-        front14.composite(source.clone().crop(14 * factor, 34 * factor, 14 * factor, 9 * factor), 0, 5 * factor);
-        front14.composite(source.clone().crop(factor, factor, 2 * factor, 4 * factor), 6 * factor, 3 * factor);
-
-        const side14 = await this.createImage(14 * factor, 14 * factor);
-        side14.composite(source.clone().crop(28 * factor, 14 * factor, 14 * factor, 5 * factor), 0, 0);
-        side14.composite(source.clone().crop(28 * factor, 34 * factor, 14 * factor, 9 * factor), 0, 5 * factor);
-
-        const top14 = source.clone().crop(28 * factor, 0, 14 * factor, 14 * factor);
         let generated = 0;
-        if (targets.front) { await this.writeImage(targets.front, await this.nearest14To16(front14, factor)); generated++; }
-        if (targets.side) { await this.writeImage(targets.side, await this.nearest14To16(side14, factor)); generated++; }
-        if (targets.top) { await this.writeImage(targets.top, await this.nearest14To16(top14, factor)); generated++; }
+        if (targets.front) { await this.writeImage(targets.front, await this.buildVerticalFace(source, 42, factor)); generated++; }
+        if (targets.side) { await this.writeImage(targets.side, await this.buildVerticalFace(source, 28, factor)); generated++; }
+        if (targets.top) { await this.writeImage(targets.top, await this.buildTopFace(source, factor)); generated++; }
         return generated;
     }
 
     async convert() {
         if (!this.isTargetProfile()) return [];
         let generated = 0;
-        for (const [from, targets] of [
+        const family = [
             ["textures/entity/chest/normal.png", {
                 front:"textures/blocks/chest_front.png", side:"textures/blocks/chest_side.png", top:"textures/blocks/chest_top.png"
             }],
@@ -78,8 +89,9 @@ class ModernChestInventoryConverter extends AbstractConverter {
             ["textures/entity/chest/copper_oxidized.png", {
                 front:"textures/blocks/oxidized_copper_chest_inventory_front.png", side:"textures/blocks/oxidized_copper_chest_inventory_side.png", top:"textures/blocks/oxidized_copper_chest_inventory_top.png"
             }]
-        ]) generated += await this.extract(from, targets);
-        this.log.log(`Java 26.3 chest inventory family: ${generated} textures generated`);
+        ];
+        for (const [from, targets] of family) generated += await this.extract(from, targets);
+        this.log.log(`Java 26.3 chest inventory family: ${generated} source-derived textures generated`);
         return [];
     }
 

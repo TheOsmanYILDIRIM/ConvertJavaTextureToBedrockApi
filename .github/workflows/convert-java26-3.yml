@@ -111,6 +111,50 @@ jobs:
               def reference_rgba(name):
                   return Image.open(reference_root / name).convert("RGBA")
 
+              def java_chest(name):
+                  return Image.open(Path("java-vanilla/assets/minecraft/textures/entity/chest") / name).convert("RGBA")
+
+              def rgba_diff_pixels(a,b):
+                  assert a.size==b.size,(a.size,b.size)
+                  return sum(1 for ap,bp in zip(a.getdata(),b.getdata()) if ap != bp)
+
+              def expected_vertical_core(source,x):
+                  lid=source.crop((x,14,x+14,19)).transpose(Image.Transpose.ROTATE_180)
+                  base=source.crop((x,33,x+14,43)).transpose(Image.Transpose.ROTATE_180)
+                  core=Image.new("RGBA",(14,15))
+                  core.paste(lid,(0,0)); core.paste(base,(0,5))
+                  return core
+
+              chest_sources={
+                  "normal.png":{"front":"textures/blocks/chest_front.png","side":"textures/blocks/chest_side.png","top":"textures/blocks/chest_top.png"},
+                  "trapped.png":{"front":"textures/blocks/trapped_chest_front.png"},
+                  "ender.png":{"front":"textures/blocks/ender_chest_front.png","side":"textures/blocks/ender_chest_side.png","top":"textures/blocks/ender_chest_top.png"},
+                  "copper.png":{"front":"textures/blocks/copper_chest_inventory_front.png","side":"textures/blocks/copper_chest_inventory_side.png","top":"textures/blocks/copper_chest_inventory_top.png"},
+                  "copper_exposed.png":{"front":"textures/blocks/exposed_copper_chest_inventory_front.png","side":"textures/blocks/exposed_copper_chest_inventory_side.png","top":"textures/blocks/exposed_copper_chest_inventory_top.png"},
+                  "copper_weathered.png":{"front":"textures/blocks/weathered_copper_chest_inventory_front.png","side":"textures/blocks/weathered_copper_chest_inventory_side.png","top":"textures/blocks/weathered_copper_chest_inventory_top.png"},
+                  "copper_oxidized.png":{"front":"textures/blocks/oxidized_copper_chest_inventory_front.png","side":"textures/blocks/oxidized_copper_chest_inventory_side.png","top":"textures/blocks/oxidized_copper_chest_inventory_top.png"},
+              }
+              chest_diff_pixels={}
+              copper_top_inner_exact=[]
+              for source_name,faces in chest_sources.items():
+                  source=java_chest(source_name)
+                  assert source.size==(64,64),(source_name,source.size)
+                  for face,target in faces.items():
+                      out=output_rgba(target); ref=reference_rgba(target)
+                      assert out.size==(16,16),(target,out.size)
+                      assert out.getchannel("A").tobytes()==ref.getchannel("A").tobytes(), f"Chest alpha mismatch: {target}"
+                      if face=="front":
+                          assert out.crop((1,1,15,16)).tobytes()==expected_vertical_core(source,42).tobytes(), f"Chest front Java UV phase mismatch: {target}"
+                      elif face=="side":
+                          assert out.crop((1,1,15,16)).tobytes()==expected_vertical_core(source,28).tobytes(), f"Chest side Java UV phase mismatch: {target}"
+                      else:
+                          top_core=source.crop((28,0,42,14)).transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+                          assert out.crop((1,1,15,15)).tobytes()==top_core.tobytes(), f"Chest top Java UV phase mismatch: {target}"
+                          if source_name.startswith("copper"):
+                              assert out.crop((1,1,15,15)).tobytes()==ref.crop((1,1,15,15)).tobytes(), f"Copper top inner pixels differ: {target}"
+                              copper_top_inner_exact.append(target)
+                      chest_diff_pixels[target]=rgba_diff_pixels(out,ref)
+
               exact_hanging=["oak","spruce","birch","jungle","acacia","dark_oak",
                              "mangrove","cherry","bamboo","crimson","warped","pale_oak"]
               for wood in exact_hanging:
@@ -233,7 +277,7 @@ jobs:
               shared_h=19*16
               assert ImageChops.difference(lava_still.crop((0,0,16,shared_h)),lava_still_ref.crop((0,0,16,shared_h))).getbbox() is None, "lava_still shared frames mismatch"
 
-              print(json.dumps({"pngs":count,"total":len(a),"beds":len(expected_beds),"signs":len(expected_signs),"copper_chests":len(expected_copper),"entity_family_targets":len(entity_family_required),"structural_family_targets":len(structural_family_required),"tint_family_targets":len(tint_family_required),"pixel_verified":{"hanging_signs":13,"bamboo_fence_gate":True,"oak_opaque_max_channel_delta":1,"entity_alpha_family":len(alpha_family),"entity_exact":2,"villager_profession_exact":27,"villager_cleric_visible_diffs":cleric_visible_diffs,"dragon_base_exact":1,"dragon_exploding_uv_mask_exact":True,"arrow_max_channel_delta":arrow_delta,"structural_visible_exact":15,"grass_colormap_exact":True,"bush_max_channel_delta":bush_delta,"water_alpha_contract":water_alpha,"lava_flow_exact":True,"lava_still_shared_exact_frames":19,"lava_still_java_frames":lava_still.height//16,"lava_still_bedrock_frames":lava_still_ref.height//16}}))
+              print(json.dumps({"pngs":count,"total":len(a),"beds":len(expected_beds),"signs":len(expected_signs),"copper_chests":len(expected_copper),"entity_family_targets":len(entity_family_required),"structural_family_targets":len(structural_family_required),"tint_family_targets":len(tint_family_required),"pixel_verified":{"hanging_signs":13,"bamboo_fence_gate":True,"oak_opaque_max_channel_delta":1,"entity_alpha_family":len(alpha_family),"entity_exact":2,"villager_profession_exact":27,"villager_cleric_visible_diffs":cleric_visible_diffs,"dragon_base_exact":1,"dragon_exploding_uv_mask_exact":True,"arrow_max_channel_delta":arrow_delta,"structural_visible_exact":15,"grass_colormap_exact":True,"bush_max_channel_delta":bush_delta,"water_alpha_contract":water_alpha,"lava_flow_exact":True,"lava_still_shared_exact_frames":19,"lava_still_java_frames":lava_still.height//16,"lava_still_bedrock_frames":lava_still_ref.height//16,"chest_diff_pixels":chest_diff_pixels,"copper_top_inner_exact":copper_top_inner_exact}}))
           PY
       - name: Build entity UV review boards
         if: always()
