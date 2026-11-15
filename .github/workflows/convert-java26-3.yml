@@ -22,11 +22,24 @@ jobs:
             assets/minecraft/textures
           sparse-checkout-cone-mode: false
           fetch-depth: 1
+      - name: Checkout pinned Bedrock reference textures
+        uses: actions/checkout@v4
+        with:
+          repository: Mojang/bedrock-samples
+          ref: 15701fa9c13923f12662984c32c124327e40e3d3
+          path: bedrock-vanilla
+          sparse-checkout: |
+            resource_pack/textures/entity
+            resource_pack/textures/blocks
+          sparse-checkout-cone-mode: false
+          fetch-depth: 1
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
       - name: Install dependencies
-        run: npm install --omit=dev --no-audit --no-fund
+        run: |
+          npm install --omit=dev --no-audit --no-fund
+          python3 -m pip install --disable-pip-version-check --quiet 'Pillow>=10,<13'
       - name: Check JavaScript
         run: find src scripts -name '*.mjs' -print0 | xargs -0 -n1 node --check
       - name: Prepare vanilla Java ZIP
@@ -72,7 +85,43 @@ jobs:
               required=expected_beds | expected_signs | expected_copper | expected_opaque | {"textures/particle/particles.png"}
               missing=sorted(required-a)
               assert not missing, f"Missing generated family textures: {missing}"
-              print(json.dumps({"pngs":count,"total":len(a),"beds":len(expected_beds),"signs":len(expected_signs),"copper_chests":len(expected_copper)}))
+
+              from io import BytesIO
+              from PIL import Image,ImageChops
+              reference_root=Path("bedrock-vanilla/resource_pack")
+
+              def output_rgba(name):
+                  return Image.open(BytesIO(z.read(name))).convert("RGBA")
+
+              def reference_rgba(name):
+                  return Image.open(reference_root / name).convert("RGBA")
+
+              exact_hanging=["oak","spruce","birch","jungle","acacia","dark_oak",
+                             "mangrove","cherry","bamboo","crimson","warped","pale_oak"]
+              for wood in exact_hanging:
+                  name=f"textures/entity/{wood}_hanging_sign.png"
+                  out=output_rgba(name)
+                  ref=reference_rgba(name)
+                  assert out.size==ref.size,(name,out.size,ref.size)
+                  assert ImageChops.difference(out,ref).getbbox() is None, f"Hanging sign pixel mismatch: {wood}"
+
+              # Poplar geometry is shared, but the pinned Java/Bedrock source
+              # snapshots use slightly different poplar colours.
+              poplar=output_rgba("textures/entity/poplar_hanging_sign.png")
+              poplar_ref=reference_rgba("textures/entity/poplar_hanging_sign.png")
+              assert poplar.getchannel("A").tobytes()==poplar_ref.getchannel("A").tobytes(), "Poplar hanging sign UV mismatch"
+
+              gate=output_rgba("textures/blocks/bamboo_fence_gate.png")
+              gate_ref=reference_rgba("textures/blocks/bamboo_fence_gate.png")
+              assert ImageChops.difference(gate,gate_ref).getbbox() is None, "Bamboo fence gate pixel mismatch"
+
+              oak=output_rgba("textures/blocks/leaves_oak_opaque.png")
+              oak_ref=reference_rgba("textures/blocks/leaves_oak_opaque.png")
+              assert min(oak.getchannel("A").getextrema())==255, "Opaque oak still has transparency"
+              oak_delta=ImageChops.difference(oak,oak_ref)
+              assert max(channel[1] for channel in oak_delta.getextrema())<=1, f"Opaque oak diverges from Bedrock: {oak_delta.getextrema()}"
+
+              print(json.dumps({"pngs":count,"total":len(a),"beds":len(expected_beds),"signs":len(expected_signs),"copper_chests":len(expected_copper),"pixel_verified":{"hanging_signs":13,"bamboo_fence_gate":True,"oak_opaque_max_channel_delta":1}}))
           PY
       - uses: actions/upload-artifact@v4
         if: always()

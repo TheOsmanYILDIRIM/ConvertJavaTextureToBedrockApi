@@ -8,6 +8,7 @@ import { BarConverter } from "./BarConverter.mjs";
 import { BedConverter } from "./BedConverter.mjs";
 import { ModernBedFacesConverter } from "./ModernBedFacesConverter.mjs";
 import { ModernSignConverter } from "./ModernSignConverter.mjs";
+import { ModernBambooFenceGateConverter } from "./ModernBambooFenceGateConverter.mjs";
 import { BeeConverter } from "./BeeConverter.mjs";
 import { ChestFrontConverter } from "./ChestFrontConverter.mjs";
 import { ChestLeftRightDoubleConverter } from "./ChestLeftRightDoubleConverter.mjs";
@@ -63,6 +64,7 @@ const converters = [
     BedConverter,
     ModernBedFacesConverter,
     ModernSignConverter,
+    ModernBambooFenceGateConverter,
     ChestNormalConverter,
     ChestLeftRightDoubleConverter,
     ChestFrontConverter,

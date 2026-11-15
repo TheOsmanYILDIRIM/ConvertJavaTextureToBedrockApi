@@ -22,23 +22,32 @@ class ModernSignConverter extends AbstractConverter {
         if (!Number.isInteger(factor) || factor < 1 || image.getHeight() !== 32 * factor)
             throw new Error(`Unexpected sign tile dimensions for ${wood}`);
         const atlas = await this.createImage(64 * factor, 32 * factor);
-        const paste = (sx,sy,w,h,dx,dy) =>
-            atlas.composite(image.clone().crop(sx*factor,sy*factor,w*factor,h*factor),dx*factor,dy*factor);
+        const paste = (sx,sy,w,h,dx,dy,flipX=false,flipY=false) => {
+            const piece = image.clone().crop(sx*factor,sy*factor,w*factor,h*factor);
+            if (flipX || flipY) piece.flip(flipX,flipY);
+            atlas.composite(piece,dx*factor,dy*factor);
+        };
         if (hanging) {
-            // Java sign board faces are the 14x10 tiles at y=16; Bedrock
-            // places the pair adjacent at (2,14) and (18,14).
+            // Java 26.3's 32x32 hanging-sign atlas contains the same pixels as
+            // Mojang's 64x32 Bedrock atlas, but several UV islands move/rotate.
+            // Keep every face: the previous layout silently dropped 102 opaque
+            // pixels and left the upper/right board faces transparent.
             paste(0,0,16,6, 4,0);
-            paste(16,0,16,6, 10,6);
+            paste(16,0,16,4, 10,6);
+            paste(20,4,12,2, 14,10);
+            paste(16,4,4,2, 20,4);
+            paste(16,7,4,2, 0,4);
+            paste(0,7,16,2, 24,4);
+            paste(0,9,16,4, 20,0,true,true);
+            paste(22,7,3,2, 0,6);
+            paste(22,11,3,2, 0,10);
             paste(24,7,8,6, 2,6);
             paste(2,14,14,2, 2,12);
             paste(2,16,14,10, 2,14);
             paste(18,16,14,10, 18,14);
-            paste(2,26,14,2, 16,12);
-            // Java standing/hanging sign board side strips have separate
-            // 2px columns. Restore those UV faces (same for every wood).
+            paste(2,26,14,2, 16,12,false,true);
             paste(0,16,2,10, 0,14);
             paste(16,16,2,10, 16,14);
-            paste(16,7,4,2, 0,4);
         } else {
             // Exact front/back/pole locations for the 32x32 Java sign tile
             // and Mojang's classic 64x32 Bedrock standing-sign atlas.
