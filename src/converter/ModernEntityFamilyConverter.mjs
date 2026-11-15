@@ -147,7 +147,14 @@ class ModernEntityFamilyConverter extends AbstractConverter {
 
     async createTransparentVillagerProfession(path) {
         if (await this.output.exists(path)) return false;
-        const image = await this.createImage(64, 64);
+        const sibling = path.replace(/unskilled\.png$/, "armorer.png");
+        let width = 64, height = 64;
+        if (await this.output.exists(sibling)) {
+            const template = await this.readImage(sibling);
+            width = template.getWidth();
+            height = template.getHeight();
+        }
+        const image = await this.createImage(width, height);
         await this.writeImage(path, image);
         return true;
     }
@@ -201,7 +208,14 @@ class ModernEntityFamilyConverter extends AbstractConverter {
             ) ? 1 : 0;
         }
         if (!await this.output.exists("textures/entity/horse2/armor/horse_armor_none.png")) {
-            await this.writeImage("textures/entity/horse2/armor/horse_armor_none.png", await this.createImage(64, 64));
+            const templatePath = "textures/entity/horse2/armor/horse_armor_diamond.png";
+            let width = 64, height = 64;
+            if (await this.output.exists(templatePath)) {
+                const template = await this.readImage(templatePath);
+                width = template.getWidth();
+                height = template.getHeight();
+            }
+            await this.writeImage("textures/entity/horse2/armor/horse_armor_none.png", await this.createImage(width, height));
             generated++;
         }
 

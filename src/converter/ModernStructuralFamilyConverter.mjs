@@ -62,11 +62,17 @@ class ModernStructuralFamilyConverter extends AbstractConverter {
         return true;
     }
 
-    async stackFrames(prefix, indexes, to, direction = "vertical", pad = 0) {
+    async stackFrames(prefix, indexes, to, direction = "vertical", padUv = 0, baseFrameWidth = null) {
         const paths = indexes.map(i => `textures/${prefix}${i}.png`);
         for (const path of paths) if (!await this.output.exists(path)) return false;
         const first = await this.readImage(paths[0]);
         const fw = first.getWidth(), fh = first.getHeight();
+        let factor = 1;
+        if (baseFrameWidth !== null) {
+            factor = fw / baseFrameWidth;
+            if (!Number.isInteger(factor) || factor < 1) return false;
+        }
+        const pad = padUv * factor;
         const cellW = fw + pad * 2, cellH = fh + pad * 2;
         const width = direction === "horizontal" ? cellW * paths.length : cellW;
         const height = direction === "vertical" ? cellH * paths.length : cellH;
@@ -108,7 +114,7 @@ class ModernStructuralFamilyConverter extends AbstractConverter {
         generated += await this.stackFrames("particle/soul_", [0,1,2,3,4,5,6,7,8,9,10], "textures/particle/soul.png") ? 1 : 0;
         generated += await this.stackFrames("particle/small_gust_", [0,1,2,3,4,5,6], "textures/particle/small_gust.png", "horizontal") ? 1 : 0;
         for (const color of ["orange", "red", "yellow"]) {
-            generated += await this.stackFrames(`particle/${color}_poplar_`, [1,2,3,4], `textures/particle/${color}_poplar_leaves_atlas.png`, "horizontal", 1) ? 1 : 0;
+            generated += await this.stackFrames(`particle/${color}_poplar_`, [1,2,3,4], `textures/particle/${color}_poplar_leaves_atlas.png`, "horizontal", 1, 5) ? 1 : 0;
         }
 
         this.log.log(`Java 26.3 structural family synthesis: ${generated} textures generated/updated`);
