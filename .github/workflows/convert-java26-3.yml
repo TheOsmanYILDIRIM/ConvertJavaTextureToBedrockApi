@@ -94,8 +94,9 @@ jobs:
               pane_family={f"textures/blocks/glass_pane_top{('_'+c) if c else ''}.png" for c in pane_colors}
               copper_inventory={f"textures/blocks/{prefix}_copper_chest_inventory_{face}.png" for prefix in ["exposed","weathered","oxidized"] for face in ["front","side","top"]}
               copper_inventory|={f"textures/blocks/copper_chest_inventory_{face}.png" for face in ["front","side","top"]}
+              chest_inventory={"textures/blocks/chest_front.png","textures/blocks/chest_side.png","textures/blocks/chest_top.png","textures/blocks/trapped_chest_front.png","textures/blocks/ender_chest_front.png","textures/blocks/ender_chest_side.png","textures/blocks/ender_chest_top.png"}
               exact_family_required={"textures/environment/end_sky.png","textures/environment/sun_vv.png","textures/entity/pig/pig.png","textures/blocks/carrots_stage_3.png","textures/blocks/cherry_log_side.png","textures/blocks/pale_moss.png","textures/blocks/shelf_mushroom_large.png","textures/blocks/shelf_mushroom_small.png","textures/blocks/stripped_cherry_log_side.png","textures/entity/boat/cherry_boat.png","textures/entity/boat/mangrove_boat.png","textures/entity/chicken/chicken.png","textures/entity/guardian_elder.png","textures/entity/squid.png","textures/items/spawn_egg_sulfur_cube.png","textures/items/spawn_eggs/spawn_egg_sulfur_cube.png"}
-              required=expected_beds | expected_signs | expected_copper | expected_opaque | entity_family_required | structural_family_required | tint_family_required | pane_family | copper_inventory | exact_family_required | {"textures/particle/particles.png"}
+              required=expected_beds | expected_signs | expected_copper | expected_opaque | entity_family_required | structural_family_required | tint_family_required | pane_family | copper_inventory | chest_inventory | exact_family_required | {"textures/particle/particles.png"}
               missing=sorted(required-a)
               assert not missing, f"Missing generated family textures: {missing}"
 
@@ -172,8 +173,8 @@ jobs:
               pig_legacy_ref=reference_rgba("textures/entity/pig/pig.png")
               assert pig_legacy.size==pig_legacy_ref.size
               assert pig_legacy.getchannel("A").tobytes()==pig_legacy_ref.getchannel("A").tobytes(), "legacy pig UV mismatch"
-              for name in copper_inventory:
-                  assert output_rgba(name).size==(14,14), (name,output_rgba(name).size)
+              for name in copper_inventory | chest_inventory:
+                  assert output_rgba(name).size==(16,16), (name,output_rgba(name).size)
 
               grass=output_rgba("textures/blocks/grass_carried.png")
               grass_ref=reference_rgba("textures/blocks/grass_carried.png")
