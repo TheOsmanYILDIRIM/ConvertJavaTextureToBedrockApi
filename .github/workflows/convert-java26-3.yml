@@ -147,6 +147,12 @@ jobs:
                   out=output_rgba(name); ref=reference_rgba(name)
                   assert ImageChops.difference(out,ref).getbbox() is None, f"Entity exact mismatch: {name}"
 
+              arrow=output_rgba("textures/entity/arrows.png")
+              arrow_ref=reference_rgba("textures/entity/arrows.png")
+              assert arrow.getchannel("A").tobytes()==arrow_ref.getchannel("A").tobytes(), "Arrow UV/alpha mismatch"
+              arrow_delta=max(abs(a-b) for op,rp in zip(arrow.getdata(),arrow_ref.getdata()) if rp[3] for a,b in zip(op[:3],rp[:3]))
+              assert arrow_delta <= 3, f"Arrow visible RGB delta {arrow_delta}"
+
               def assert_visible_exact(name):
                   out=output_rgba(name); ref=reference_rgba(name)
                   assert out.size==ref.size,(name,out.size,ref.size)
@@ -185,7 +191,7 @@ jobs:
               bush_delta=max(abs(a-b) for op,rp in zip(bush.getdata(),bush_ref.getdata()) for a,b in zip(op[:3],rp[:3]))
               assert bush_delta <= 1, f"bush visible tint delta {bush_delta}"
 
-              print(json.dumps({"pngs":count,"total":len(a),"beds":len(expected_beds),"signs":len(expected_signs),"copper_chests":len(expected_copper),"entity_family_targets":len(entity_family_required),"structural_family_targets":len(structural_family_required),"tint_family_targets":len(tint_family_required),"pixel_verified":{"hanging_signs":13,"bamboo_fence_gate":True,"oak_opaque_max_channel_delta":1,"entity_alpha_family":len(alpha_family),"entity_exact":2,"structural_visible_exact":15,"grass_colormap_exact":True,"bush_max_channel_delta":bush_delta}}))
+              print(json.dumps({"pngs":count,"total":len(a),"beds":len(expected_beds),"signs":len(expected_signs),"copper_chests":len(expected_copper),"entity_family_targets":len(entity_family_required),"structural_family_targets":len(structural_family_required),"tint_family_targets":len(tint_family_required),"pixel_verified":{"hanging_signs":13,"bamboo_fence_gate":True,"oak_opaque_max_channel_delta":1,"entity_alpha_family":len(alpha_family),"entity_exact":2,"arrow_max_channel_delta":arrow_delta,"structural_visible_exact":15,"grass_colormap_exact":True,"bush_max_channel_delta":bush_delta}}))
           PY
       - name: Build entity UV review boards
         if: always()

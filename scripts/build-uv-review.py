@@ -5,6 +5,7 @@ from io import BytesIO
 from PIL import Image, ImageChops, ImageDraw, ImageFont
 
 CASES = [
+    ("arrow", "entity/projectiles/arrow.png", "entity/arrows.png", "entity/arrows.png"),
     ("camel", "entity/camel/camel.png", "entity/camel/camel.png", "entity/camel/camel.png"),
     ("horse_black", "entity/horse/horse_black.png", "entity/horse2/horse_black.png", "entity/horse2/horse_black.png"),
     ("pig_active", "entity/pig/pig_temperate.png", "entity/pig/pig_v3.png", "entity/pig/pig_v3.png"),
