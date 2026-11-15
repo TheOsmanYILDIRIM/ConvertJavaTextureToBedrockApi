@@ -24,6 +24,20 @@ class WaterConverter extends AbstractConverter {
 
         image.ensureMinWidth(mind_width); // Bedrock version has doubled pixels as the Java version
 
+        // Modern Bedrock keeps the grey water atlases at fixed alpha levels.
+        // Preserve the custom Java animation/RGB art; only normalize the format contract.
+        if (this.options?.javaVersion === "26.3" && this.options?.bedrockVersion === "1.26.50.4") {
+            const modernAlpha = {
+                "textures/blocks/water_flow_grey.png": 255,
+                "textures/blocks/water_still_grey.png": 240
+            }[to];
+            if (modernAlpha !== undefined) {
+                image.scan(0, 0, image.getWidth(), image.getHeight(), (x, y, idx) => {
+                    image.bitmap.data[idx + 3] = modernAlpha;
+                });
+            }
+        }
+
         await this.writeImage(to, image);
 
         return [];

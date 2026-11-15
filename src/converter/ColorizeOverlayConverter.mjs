@@ -41,6 +41,14 @@ class ColorizeOverlayConverter extends AbstractConverter {
         }
 
         if (image !== null) {
+            // Java water atlases use alpha 180; current Bedrock normal-water atlases are opaque.
+            // Keep the source animation and custom art, but normalize the modern target alpha.
+            if (this.options?.javaVersion === "26.3" && this.options?.bedrockVersion === "1.26.50.4" &&
+                (to === "textures/blocks/water_flow.png" || to === "textures/blocks/water_still.png")) {
+                image.scan(0, 0, image.getWidth(), image.getHeight(), (x, y, idx) => {
+                    image.bitmap.data[idx + 3] = 255;
+                });
+            }
             await this.writeImage(to, image);
         }
 

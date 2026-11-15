@@ -96,7 +96,8 @@ jobs:
               copper_inventory|={f"textures/blocks/copper_chest_inventory_{face}.png" for face in ["front","side","top"]}
               chest_inventory={"textures/blocks/chest_front.png","textures/blocks/chest_side.png","textures/blocks/chest_top.png","textures/blocks/trapped_chest_front.png","textures/blocks/ender_chest_front.png","textures/blocks/ender_chest_side.png","textures/blocks/ender_chest_top.png"}
               exact_family_required={"textures/environment/end_sky.png","textures/environment/sun_vv.png","textures/entity/pig/pig.png","textures/blocks/carrots_stage_3.png","textures/blocks/cherry_log_side.png","textures/blocks/pale_moss.png","textures/blocks/shelf_mushroom_large.png","textures/blocks/shelf_mushroom_small.png","textures/blocks/stripped_cherry_log_side.png","textures/entity/boat/cherry_boat.png","textures/entity/boat/mangrove_boat.png","textures/entity/chicken/chicken.png","textures/entity/guardian_elder.png","textures/entity/squid.png","textures/items/spawn_egg_sulfur_cube.png","textures/items/spawn_eggs/spawn_egg_sulfur_cube.png"}
-              required=expected_beds | expected_signs | expected_copper | expected_opaque | entity_family_required | structural_family_required | tint_family_required | pane_family | copper_inventory | chest_inventory | exact_family_required | {"textures/particle/particles.png"}
+              liquid_family={"textures/blocks/water_still.png","textures/blocks/water_flow.png","textures/blocks/water_still_grey.png","textures/blocks/water_flow_grey.png","textures/blocks/lava_still.png","textures/blocks/lava_flow.png"}
+              required=expected_beds | expected_signs | expected_copper | expected_opaque | entity_family_required | structural_family_required | tint_family_required | pane_family | copper_inventory | chest_inventory | exact_family_required | liquid_family | {"textures/particle/particles.png"}
               missing=sorted(required-a)
               assert not missing, f"Missing generated family textures: {missing}"
 
@@ -208,7 +209,31 @@ jobs:
               bush_delta=max(abs(a-b) for op,rp in zip(bush.getdata(),bush_ref.getdata()) for a,b in zip(op[:3],rp[:3]))
               assert bush_delta <= 1, f"bush visible tint delta {bush_delta}"
 
-              print(json.dumps({"pngs":count,"total":len(a),"beds":len(expected_beds),"signs":len(expected_signs),"copper_chests":len(expected_copper),"entity_family_targets":len(entity_family_required),"structural_family_targets":len(structural_family_required),"tint_family_targets":len(tint_family_required),"pixel_verified":{"hanging_signs":13,"bamboo_fence_gate":True,"oak_opaque_max_channel_delta":1,"entity_alpha_family":len(alpha_family),"entity_exact":2,"villager_profession_exact":27,"villager_cleric_visible_diffs":cleric_visible_diffs,"dragon_base_exact":1,"dragon_exploding_uv_mask_exact":True,"arrow_max_channel_delta":arrow_delta,"structural_visible_exact":15,"grass_colormap_exact":True,"bush_max_channel_delta":bush_delta}}))
+              water_alpha={
+                  "textures/blocks/water_still.png":255,
+                  "textures/blocks/water_flow.png":255,
+                  "textures/blocks/water_still_grey.png":240,
+                  "textures/blocks/water_flow_grey.png":255,
+              }
+              for name,alpha in water_alpha.items():
+                  out=output_rgba(name)
+                  assert out.getchannel("A").getextrema()==(alpha,alpha), (name,out.getchannel("A").getextrema())
+
+              lava_flow=output_rgba("textures/blocks/lava_flow.png")
+              lava_flow_ref=reference_rgba("textures/blocks/lava_flow.png")
+              assert ImageChops.difference(lava_flow,lava_flow_ref).getbbox() is None, "lava_flow mismatch"
+
+              lava_still=output_rgba("textures/blocks/lava_still.png")
+              lava_still_ref=reference_rgba("textures/blocks/lava_still.png")
+              assert lava_still.width==16 and lava_still.height%16==0
+              assert lava_still_ref.size==(16,512)
+              # The pinned Java source has 20 frames while current Bedrock ships 32.
+              # The shared first 19 frames are exact; do not invent/bake the Bedrock-only tail
+              # into custom packs merely to force vanilla-reference dimensions.
+              shared_h=19*16
+              assert ImageChops.difference(lava_still.crop((0,0,16,shared_h)),lava_still_ref.crop((0,0,16,shared_h))).getbbox() is None, "lava_still shared frames mismatch"
+
+              print(json.dumps({"pngs":count,"total":len(a),"beds":len(expected_beds),"signs":len(expected_signs),"copper_chests":len(expected_copper),"entity_family_targets":len(entity_family_required),"structural_family_targets":len(structural_family_required),"tint_family_targets":len(tint_family_required),"pixel_verified":{"hanging_signs":13,"bamboo_fence_gate":True,"oak_opaque_max_channel_delta":1,"entity_alpha_family":len(alpha_family),"entity_exact":2,"villager_profession_exact":27,"villager_cleric_visible_diffs":cleric_visible_diffs,"dragon_base_exact":1,"dragon_exploding_uv_mask_exact":True,"arrow_max_channel_delta":arrow_delta,"structural_visible_exact":15,"grass_colormap_exact":True,"bush_max_channel_delta":bush_delta,"water_alpha_contract":water_alpha,"lava_flow_exact":True,"lava_still_shared_exact_frames":19,"lava_still_java_frames":lava_still.height//16,"lava_still_bedrock_frames":lava_still_ref.height//16}}))
           PY
       - name: Build entity UV review boards
         if: always()
