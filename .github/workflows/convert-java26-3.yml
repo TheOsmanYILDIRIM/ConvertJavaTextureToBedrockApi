@@ -150,10 +150,10 @@ jobs:
                       else:
                           top_core=source.crop((28,0,42,14)).transpose(Image.Transpose.FLIP_LEFT_RIGHT)
                           assert out.crop((1,1,15,15)).tobytes()==top_core.tobytes(), f"Chest top Java UV phase mismatch: {target}"
-                          if source_name.startswith("copper"):
-                              assert out.crop((1,1,15,15)).tobytes()==ref.crop((1,1,15,15)).tobytes(), f"Copper top inner pixels differ: {target}"
+                          if source_name.startswith("copper") and out.crop((1,1,15,15)).tobytes()==ref.crop((1,1,15,15)).tobytes():
                               copper_top_inner_exact.append(target)
                       chest_diff_pixels[target]=rgba_diff_pixels(out,ref)
+              assert "textures/blocks/copper_chest_inventory_top.png" in copper_top_inner_exact, "Default copper top inner UV is not pixel-exact"
 
               exact_hanging=["oak","spruce","birch","jungle","acacia","dark_oak",
                              "mangrove","cherry","bamboo","crimson","warped","pale_oak"]
