@@ -65,6 +65,7 @@ jobs:
         run: |
           python3 - <<'PY'
           import json,zipfile
+          from pathlib import Path
           p="build/java26_3-to-bedrock1_26_50_4.mcpack"
           with zipfile.ZipFile(p) as z:
               assert z.testzip() is None

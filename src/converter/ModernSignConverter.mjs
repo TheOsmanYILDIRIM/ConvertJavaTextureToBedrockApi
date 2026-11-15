@@ -38,14 +38,21 @@ class ModernSignConverter extends AbstractConverter {
             paste(16,4,4,2, 20,4);
             paste(16,7,4,2, 0,4);
             paste(0,7,16,2, 24,4);
-            paste(0,9,16,4, 20,0,true,true);
+            // Old Jimp's flip plugin offsets tiny cropped images by one pixel.
+            // Rotate this 16x4 island explicitly so UV placement stays exact.
+            for (let sy = 9; sy < 13; sy++) {
+                for (let sx = 0; sx < 16; sx++) {
+                    paste(sx,sy,1,1, 35-sx,12-sy);
+                }
+            }
             paste(22,7,3,2, 0,6);
             paste(22,11,3,2, 0,10);
             paste(24,7,8,6, 2,6);
             paste(2,14,14,2, 2,12);
             paste(2,16,14,10, 2,14);
             paste(18,16,14,10, 18,14);
-            paste(2,26,14,2, 16,12,false,true);
+            paste(2,27,14,1, 16,12);
+            paste(2,26,14,1, 16,13);
             paste(0,16,2,10, 0,14);
             paste(16,16,2,10, 16,14);
         } else {
