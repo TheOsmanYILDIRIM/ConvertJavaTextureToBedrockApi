@@ -33,6 +33,8 @@ jobs:
             resource_pack/textures/blocks
             resource_pack/textures/items
             resource_pack/textures/particle
+            resource_pack/textures/environment
+            resource_pack/textures/colormap
           sparse-checkout-cone-mode: false
           fetch-depth: 1
       - uses: actions/setup-node@v4
