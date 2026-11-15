@@ -11,6 +11,9 @@ class ColorizeOverlayConverter extends AbstractConverter {
     async convert() {
         const [overlays, to] = this.data;
 
+        // Java 26.3 pig saddle is synthesized from the modern equipment layer earlier; do not overwrite it with the legacy atlas rule.
+        if (to === "textures/entity/pig/pig_saddle.png" && this.options?.javaVersion === "26.3" && this.options?.bedrockVersion === "1.26.50.4" && await this.output.exists(to)) return [];
+
         const to_delete = [];
 
         let image = null;
