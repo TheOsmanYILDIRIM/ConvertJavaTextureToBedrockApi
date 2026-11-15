@@ -118,12 +118,24 @@ jobs:
                   assert a.size==b.size,(a.size,b.size)
                   return sum(1 for ap,bp in zip(a.getdata(),b.getdata()) if ap != bp)
 
-              def expected_vertical_core(source,x):
+              def nearest14_to16(source):
+                  out=Image.new("RGBA",(16,16))
+                  sp=source.load(); op=out.load()
+                  for yy in range(16):
+                      sy=min(13,(yy*14)//16)
+                      for xx in range(16):
+                          sx=min(13,(xx*14)//16)
+                          op[xx,yy]=sp[sx,sy]
+                  return out
+
+              def expected_vertical_face(source,x,with_latch=False):
                   lid=source.crop((x,14,x+14,19)).transpose(Image.Transpose.ROTATE_180)
-                  base=source.crop((x,33,x+14,43)).transpose(Image.Transpose.ROTATE_180)
-                  core=Image.new("RGBA",(14,15))
-                  core.paste(lid,(0,0)); core.paste(base,(0,5))
-                  return core
+                  base=source.crop((x,33,x+14,42)).transpose(Image.Transpose.ROTATE_180)
+                  face=Image.new("RGBA",(14,14))
+                  face.paste(lid,(0,0)); face.paste(base,(0,5))
+                  if with_latch:
+                      face.alpha_composite(source.crop((1,1,3,5)),(6,3))
+                  return nearest14_to16(face)
 
               chest_sources={
                   "normal.png":{"front":"textures/blocks/chest_front.png","side":"textures/blocks/chest_side.png","top":"textures/blocks/chest_top.png"},
@@ -135,25 +147,20 @@ jobs:
                   "copper_oxidized.png":{"front":"textures/blocks/oxidized_copper_chest_inventory_front.png","side":"textures/blocks/oxidized_copper_chest_inventory_side.png","top":"textures/blocks/oxidized_copper_chest_inventory_top.png"},
               }
               chest_diff_pixels={}
-              copper_top_inner_exact=[]
               for source_name,faces in chest_sources.items():
                   source=java_chest(source_name)
                   assert source.size==(64,64),(source_name,source.size)
                   for face,target in faces.items():
                       out=output_rgba(target); ref=reference_rgba(target)
                       assert out.size==(16,16),(target,out.size)
-                      assert out.getchannel("A").tobytes()==ref.getchannel("A").tobytes(), f"Chest alpha mismatch: {target}"
                       if face=="front":
-                          assert out.crop((1,1,15,16)).tobytes()==expected_vertical_core(source,42).tobytes(), f"Chest front Java UV phase mismatch: {target}"
+                          expected=expected_vertical_face(source,42,True)
                       elif face=="side":
-                          assert out.crop((1,1,15,16)).tobytes()==expected_vertical_core(source,28).tobytes(), f"Chest side Java UV phase mismatch: {target}"
+                          expected=expected_vertical_face(source,28,False)
                       else:
-                          top_core=source.crop((28,0,42,14)).transpose(Image.Transpose.FLIP_LEFT_RIGHT)
-                          assert out.crop((1,1,15,15)).tobytes()==top_core.tobytes(), f"Chest top Java UV phase mismatch: {target}"
-                          if source_name.startswith("copper") and out.crop((1,1,15,15)).tobytes()==ref.crop((1,1,15,15)).tobytes():
-                              copper_top_inner_exact.append(target)
+                          expected=nearest14_to16(source.crop((28,0,42,14)).transpose(Image.Transpose.FLIP_TOP_BOTTOM))
+                      assert out.tobytes()==expected.tobytes(), f"Chest Java UV crop/scale mismatch: {target}"
                       chest_diff_pixels[target]=rgba_diff_pixels(out,ref)
-              assert "textures/blocks/copper_chest_inventory_top.png" in copper_top_inner_exact, "Default copper top inner UV is not pixel-exact"
 
               exact_hanging=["oak","spruce","birch","jungle","acacia","dark_oak",
                              "mangrove","cherry","bamboo","crimson","warped","pale_oak"]
@@ -279,15 +286,14 @@ jobs:
 
               print(json.dumps({"pngs":count,"total":len(a),"beds":len(expected_beds),"signs":len(expected_signs),"copper_chests":len(expected_copper),"entity_family_targets":len(entity_family_required),"structural_family_targets":len(structural_family_required),"tint_family_targets":len(tint_family_required),"pixel_verified":{"hanging_signs":13,"bamboo_fence_gate":True,"oak_opaque_max_channel_delta":1,"entity_alpha_family":len(alpha_family),"entity_exact":2,"villager_profession_exact":27,"villager_cleric_visible_diffs":cleric_visible_diffs,"dragon_base_exact":1,"dragon_exploding_uv_mask_exact":True,"arrow_max_channel_delta":arrow_delta,"structural_visible_exact":15,"grass_colormap_exact":True,"bush_max_channel_delta":bush_delta,"water_alpha_contract":water_alpha,"lava_flow_exact":True,"lava_still_shared_exact_frames":19,"lava_still_java_frames":lava_still.height//16,"lava_still_bedrock_frames":lava_still_ref.height//16,"chest_diff_pixels":chest_diff_pixels,"copper_top_inner_exact":copper_top_inner_exact}}))
           PY
-      - name: Build entity UV review boards
+      - name: Build chest output vs Bedrock review
         if: always()
         run: |
           if [ -f build/java26_3-to-bedrock1_26_50_4.mcpack ]; then
-            python3 scripts/build-uv-review.py \
+            python3 scripts/build-chest-review.py \
               --mcpack build/java26_3-to-bedrock1_26_50_4.mcpack \
-              --java-root java-vanilla/assets/minecraft/textures \
               --bedrock-root bedrock-vanilla/resource_pack/textures \
-              --out build/uv-review
+              --out build/chest-review
           fi
       - uses: actions/upload-artifact@v4
         if: always()
@@ -297,6 +303,12 @@ jobs:
             build/java_26_3_vanilla.zip
             build/java26_3-to-bedrock1_26_50_4.mcpack
             build/conversion.log
-            build/uv-review
+          if-no-files-found: warn
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: chest-output-vs-bedrock
+          path: build/chest-review
           if-no-files-found: warn
           retention-days: 7

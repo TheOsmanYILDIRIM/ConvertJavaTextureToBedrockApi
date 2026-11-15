@@ -1,53 +1,49 @@
 import { AbstractConverter } from "@modifiedcommand/convert-base-api";
 
 /**
- * Derive Bedrock 16x16 inventory/block chest faces from Java's 64x64 entity atlas.
+ * Derive Bedrock inventory/block chest faces from Java's 64x64 entity atlas.
  *
- * Bedrock does not scale the Java 14px faces to 16px. The 14px face stays at its
- * native pixel phase and sits inside a one-pixel UV rim. Front/side also keep the
- * complete 5px lid + 10px base height (15px), with the remaining row used as the
- * top rim. This preserves custom-pack pixels instead of baking Bedrock vanilla art.
+ * UV coordinates are expressed in vanilla 64px atlas units and multiplied by
+ * the source scale factor. HD packs therefore keep their native detail.
+ * The correctly cropped 14x14 face is then mapped to Bedrock's 16x16 face with
+ * nearest-neighbour sampling.
  */
 class ModernChestInventoryConverter extends AbstractConverter {
     isTargetProfile() {
         return this.options?.javaVersion === "26.3" && this.options?.bedrockVersion === "1.26.50.4";
     }
 
-    async padTopAndSides(core, factor) {
-        const out = await this.createImage(16 * factor, 16 * factor);
-        out.composite(core, factor, factor);
-        out.composite(core.clone().crop(0, 0, 14 * factor, factor), factor, 0);
-        out.composite(core.clone().crop(0, 0, factor, 15 * factor), 0, factor);
-        out.composite(core.clone().crop(13 * factor, 0, factor, 15 * factor), 15 * factor, factor);
-        out.composite(core.clone().crop(0, 0, factor, factor), 0, 0);
-        out.composite(core.clone().crop(13 * factor, 0, factor, factor), 15 * factor, 0);
+    async nearest14To16(image, factor) {
+        const srcSize = 14 * factor;
+        const dstSize = 16 * factor;
+        const out = await this.createImage(dstSize, dstSize);
+        for (let y = 0; y < dstSize; y++) {
+            const sy = Math.min(srcSize - 1, Math.floor(y * srcSize / dstSize));
+            for (let x = 0; x < dstSize; x++) {
+                const sx = Math.min(srcSize - 1, Math.floor(x * srcSize / dstSize));
+                const si = (sy * srcSize + sx) * 4;
+                const di = (y * dstSize + x) * 4;
+                out.bitmap.data[di] = image.bitmap.data[si];
+                out.bitmap.data[di + 1] = image.bitmap.data[si + 1];
+                out.bitmap.data[di + 2] = image.bitmap.data[si + 2];
+                out.bitmap.data[di + 3] = image.bitmap.data[si + 3];
+            }
+        }
         return out;
     }
 
-    async padAllSides(core, factor) {
-        const out = await this.createImage(16 * factor, 16 * factor);
-        out.composite(core, factor, factor);
-        out.composite(core.clone().crop(0, 0, 14 * factor, factor), factor, 0);
-        out.composite(core.clone().crop(0, 13 * factor, 14 * factor, factor), factor, 15 * factor);
-        out.composite(core.clone().crop(0, 0, factor, 14 * factor), 0, factor);
-        out.composite(core.clone().crop(13 * factor, 0, factor, 14 * factor), 15 * factor, factor);
-        out.composite(core.clone().crop(0, 0, factor, factor), 0, 0);
-        out.composite(core.clone().crop(13 * factor, 0, factor, factor), 15 * factor, 0);
-        out.composite(core.clone().crop(0, 13 * factor, factor, factor), 0, 15 * factor);
-        out.composite(core.clone().crop(13 * factor, 13 * factor, factor, factor), 15 * factor, 15 * factor);
-        return out;
+    async buildVerticalFace(source, x, factor, withLatch = false) {
+        const face = await this.createImage(14 * factor, 14 * factor);
+        face.composite(source.clone().crop(x * factor, 14 * factor, 14 * factor, 5 * factor).rotateSimple(180), 0, 0);
+        face.composite(source.clone().crop(x * factor, 33 * factor, 14 * factor, 9 * factor).rotateSimple(180), 0, 5 * factor);
+        if (withLatch) {
+            face.composite(source.clone().crop(factor, factor, 2 * factor, 4 * factor), 6 * factor, 3 * factor);
+        }
+        return face;
     }
 
-    async buildVerticalFace(source, x, factor) {
-        const core = await this.createImage(14 * factor, 15 * factor);
-        core.composite(source.clone().crop(x * factor, 14 * factor, 14 * factor, 5 * factor).rotateSimple(180), 0, 0);
-        core.composite(source.clone().crop(x * factor, 33 * factor, 14 * factor, 10 * factor).rotateSimple(180), 0, 5 * factor);
-        return this.padTopAndSides(core, factor);
-    }
-
-    async buildTopFace(source, factor) {
-        const core = source.clone().crop(28 * factor, 0, 14 * factor, 14 * factor).flip(true, false);
-        return this.padAllSides(core, factor);
+    buildTopFace(source, factor) {
+        return source.clone().crop(28 * factor, 0, 14 * factor, 14 * factor).flip(false, true);
     }
 
     async extract(from, targets) {
@@ -58,9 +54,21 @@ class ModernChestInventoryConverter extends AbstractConverter {
         if (!Number.isInteger(factor) || factor < 1 || source.getHeight() !== 64 * factor) return 0;
 
         let generated = 0;
-        if (targets.front) { await this.writeImage(targets.front, await this.buildVerticalFace(source, 42, factor)); generated++; }
-        if (targets.side) { await this.writeImage(targets.side, await this.buildVerticalFace(source, 28, factor)); generated++; }
-        if (targets.top) { await this.writeImage(targets.top, await this.buildTopFace(source, factor)); generated++; }
+        if (targets.front) {
+            const front = await this.buildVerticalFace(source, 42, factor, true);
+            await this.writeImage(targets.front, await this.nearest14To16(front, factor));
+            generated++;
+        }
+        if (targets.side) {
+            const side = await this.buildVerticalFace(source, 28, factor, false);
+            await this.writeImage(targets.side, await this.nearest14To16(side, factor));
+            generated++;
+        }
+        if (targets.top) {
+            const top = this.buildTopFace(source, factor);
+            await this.writeImage(targets.top, await this.nearest14To16(top, factor));
+            generated++;
+        }
         return generated;
     }
 
