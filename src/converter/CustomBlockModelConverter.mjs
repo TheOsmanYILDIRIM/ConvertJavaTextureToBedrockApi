@@ -322,6 +322,22 @@ class CustomBlockModelConverter extends AbstractConverter {
         };
     }
 
+    async addonNamespace() {
+        if (this._addonNamespace) return this._addonNamespace;
+        let suffix = "default";
+        try {
+            if (await this.output.exists("manifest.json")) {
+                const manifest = JSON.parse((await this.output.read("manifest.json")).toString("utf8"));
+                const uuid = String(manifest?.header?.uuid || "").toLowerCase().replace(/[^0-9a-f]/g, "");
+                if (uuid.length >= 8) suffix = uuid.slice(0, 8);
+            }
+        } catch {
+            // Keep deterministic fallback when a custom output backend hides the manifest.
+        }
+        this._addonNamespace = "j2b_" + suffix;
+        return this._addonNamespace;
+    }
+
     async loadTerrainTexture() {
         const path = "textures/terrain_texture.json";
         if (!await this.output.exists(path)) {
@@ -373,9 +389,10 @@ class CustomBlockModelConverter extends AbstractConverter {
 
         const keyText = `${blockId}|${variantKey}|${entry.model}|${rotation.x}|${rotation.y}|${choiceIndex}`;
         const base = safeName(`${blockId.replace(":", "_")}__${hashText(keyText)}_${choiceIndex}`);
-        const blockIdentifier = `j2b:${base}`;
-        const geometryIdentifier = `geometry.j2b.${base}`;
-        const textureKey = `j2b_${base}`;
+        const namespace = await this.addonNamespace();
+        const blockIdentifier = `${namespace}:${base}`;
+        const geometryIdentifier = `geometry.${namespace}.${base}`;
+        const textureKey = `${namespace}_${base}`;
         const texturePath = `textures/blocks/j2b_custom/${base}_atlas`;
         const geometryPath = `models/blocks/j2b_custom/${base}.geo.json`;
         const behaviorPath = `j2b_companion/blocks/${base}.json`;
@@ -461,8 +478,8 @@ class CustomBlockModelConverter extends AbstractConverter {
             await this.writeJson("j2b_custom_blocks.json", {
                 format: 1,
                 target: "bedrock-1.21.80+",
-                namespace: "j2b",
-                note: "Generated custom blocks are creator-namespace blocks; they do not replace minecraft: vanilla block identifiers.",
+                namespace: await this.addonNamespace(),
+                note: "Generated custom blocks use a pack-unique creator namespace derived from the resource-pack UUID; they do not replace minecraft: vanilla block identifiers.",
                 mappings: mapping,
                 skipped_multipart: skippedMultipart
             });

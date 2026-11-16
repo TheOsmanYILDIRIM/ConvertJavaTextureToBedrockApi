@@ -178,7 +178,11 @@ jobs:
 
               report=json.loads(z.read("J2B_RP/j2b_custom_blocks.json"))
               mappings=report["mappings"]
+              assert report["namespace"].startswith("j2b_"),report["namespace"]
+              assert len(report["namespace"])==12,report["namespace"]
               assert len(mappings)==2,mappings
+              assert all(m["bedrock_block"].startswith(report["namespace"]+":") for m in mappings)
+              assert all(m["geometry"].startswith("geometry."+report["namespace"]+".") for m in mappings)
               assert {m["java_variant"] for m in mappings}=={"facing=north","facing=east"}
               assert all(m["java_model"]=="minecraft:block/j2b_child" for m in mappings)
               assert all(m["java_block"]=="minecraft:j2b_demo" for m in mappings)
