@@ -372,15 +372,8 @@ class OptifineRandomBlockVariantConverter extends AbstractConverter {
         for (const raw of logical) {
             const line = raw.trim();
             if (!line || line.startsWith("#") || line.startsWith("!")) continue;
-            let at = line.indexOf("=");
-            if (at < 0) at = line.indexOf(":");
-            if (at < 0) {
-                const m = line.match(/^([^\s]+)\s+(.+)$/);
-                if (!m) continue;
-                out[m[1].trim()] = m[2].trim();
-            } else {
-                out[line.slice(0, at).trim()] = line.slice(at + 1).trim();
-            }
+            const m = line.match(/^([^\s=:]+)(?:\s*[=:]\s*|\s+)(.*)$/);
+            if (m) out[m[1]] = m[2].trim();
         }
         return out;
     }
@@ -633,7 +626,7 @@ class OptifineRandomBlockVariantConverter extends AbstractConverter {
                 .split("\n").filter(line => !line.trim().startsWith("//")).join("\n")
                 .replace(/,\s*([}\]])/g, "$1"));
         } catch (error) {
-            this.log.warn(`OptiFine random variants: existing terrain_texture.json could not be parsed (${error.message})`);
+            this.log.warn(`OptiFine CTM: existing terrain_texture.json could not be parsed (${error.message})`);
             return null;
         }
     }
@@ -828,7 +821,7 @@ class OptifineRandomBlockVariantConverter extends AbstractConverter {
         if (!this.isTargetProfile()) return [];
         const propertyFiles = this.listPropertyFiles();
         if (propertyFiles === null) {
-            this.log.warn("OptiFine random variants: current output backend cannot enumerate files; skipped");
+            this.log.warn("OptiFine CTM: current output backend cannot enumerate files; skipped");
             return [];
         }
         if (propertyFiles.length === 0) return [];
@@ -836,7 +829,7 @@ class OptifineRandomBlockVariantConverter extends AbstractConverter {
         const catalog = await this.loadCatalog();
         if (!catalog) return [];
 
-        let converted = 0, skipped = 0, ignored = 0, duplicateRules = 0;
+        let converted = 0, skipped = 0, native = 0, approximate = 0, duplicateRules = 0;
         const claims = new Map();
         const rules = [];
         for (const path of propertyFiles) {
@@ -855,22 +848,39 @@ class OptifineRandomBlockVariantConverter extends AbstractConverter {
             const result = await this.convertRule(path, catalog, claims, props);
             if (result.converted) {
                 converted++;
-                this.log.log(`OptiFine random variants: ${path} -> ${result.slots.join(", ")} (${result.method}, ${result.quality}, ${result.variants} tiles)`);
-            } else if (result.ignored) {
-                ignored++;
+                if (result.quality === "native") native++; else approximate++;
+                this.log.log(`OptiFine CTM: ${path} -> ${result.slots.join(", ")} (${result.method}, ${result.quality}, ${result.variants} tiles)`);
             } else if (result.duplicates?.length && !result.conflicts?.length) {
                 duplicateRules++;
             } else {
                 skipped++;
             }
-            if (result.reason) this.log.warn(`OptiFine random variants skipped: ${path}: ${result.reason}`);
+            if (result.reason) this.log.warn(`OptiFine CTM skipped: ${path}: ${result.reason}`);
             if (result.conflicts?.length) {
                 this.log.warn(`OptiFine random variant slot conflicts: ${path}: ${result.conflicts.join("; ")}`);
             }
         }
 
-        if (converted > 0) await this.writeJson("textures/terrain_texture.json", catalog);
-        this.log.log(`OptiFine random variants: ${converted} converted, ${skipped} unsupported/skipped, ${duplicateRules} duplicate rules, ${ignored} non-random CTM rules ignored`);
+        if (converted > 0) {
+            // Every vanilla grass_top tint slot references the same base file.
+            // Mirror a uniform static fallback at that file, not just in the atlas.
+            const grass = catalog.texture_data?.grass_top?.textures;
+            const slots = Array.isArray(grass) ? grass : grass ? [grass] : [];
+            const fallback = slotPath(slots[0]);
+            const base = "textures/blocks/grass_top";
+            if (fallback?.startsWith("textures/blocks/optifine_random/") &&
+                slots.length === VANILLA_LAYOUTS.grass_top.length &&
+                VANILLA_LAYOUTS.grass_top.every(slot => slotPath(slot) === base) &&
+                slots.every(slot => slotPath(slot) === fallback) &&
+                slots.every((_,i) => claims.get(JSON.stringify(["grass_top",i]))?.base === base) &&
+                await this.output.exists(fallback + ".png") &&
+                !await this.output.exists(base + ".tga") &&
+                !await this.output.exists(base + ".texture_set.json")) {
+                await this.output.copy(fallback + ".png", base + ".png");
+            }
+            await this.writeJson("textures/terrain_texture.json", catalog);
+        }
+        this.log.log(`OptiFine CTM: ${converted} converted (${native} native, ${approximate} approximate), ${skipped} skipped, ${duplicateRules} duplicate rules`);
         return [];
     }
 
