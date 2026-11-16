@@ -335,6 +335,7 @@ class OptifineRandomBlockVariantConverter extends AbstractConverter {
     }
 
     async convert() {
+        if (this.options?.optifineRandomBlockVariants === false) return [];
         if (!this.isTargetProfile()) return [];
         const propertyFiles = this.listPropertyFiles();
         if (propertyFiles === null) {

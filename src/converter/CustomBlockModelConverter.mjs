@@ -440,6 +440,7 @@ class CustomBlockModelConverter extends AbstractConverter {
     }
 
     async convert() {
+        if (this.options?.customBlockModels === false) return [];
         if (!this.isTargetProfile()) return [];
 
         const blockstates = this.listFiles(/^assets\/[^/]+\/blockstates\/.+\.json$/);
