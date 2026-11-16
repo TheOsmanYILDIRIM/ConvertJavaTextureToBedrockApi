@@ -11,6 +11,13 @@ class PlaceholderConverter extends AbstractConverter {
     async convert() {
         const [from, x, y, width, height, factor_detect, to, square_mode, min_pack_format] = this.data;
 
+        if (
+            this.options?.javaVersion === "26.3" &&
+            this.options?.bedrockVersion === "1.26.50.4" &&
+            ["textures/blocks/chest_top.png", "textures/blocks/ender_chest_top.png"].includes(to) &&
+            await this.output.exists(to)
+        ) return [];
+
         if (min_pack_format && MetadataConverter.mcmeta.pack.pack_format < min_pack_format) {
             return [];
         }

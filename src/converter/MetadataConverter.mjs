@@ -40,14 +40,46 @@ class MetadataConverter extends AbstractConverter {
 
         MetadataConverter.mcmeta = JSON.parse((await this.output.read(from)).toString("utf8").trim()); // trim it to supports UF8 files with 'BOOM' at the beginning
 
-        if (MetadataConverter.mcmeta.pack.pack_format < 4 ) {
+        const pack = MetadataConverter.mcmeta.pack || {};
+        const parseFormat = value => {
+            if (Array.isArray(value)) {
+                const major = Number(value[0]);
+                const minor = Number(value[1] ?? 0);
+                if (!Number.isFinite(major) || !Number.isFinite(minor)) return null;
+                return { major, minor, numeric: Number(`${major}.${minor}`) };
+            }
+            const numeric = Number(value);
+            if (!Number.isFinite(numeric)) return null;
+            const [majorText, minorText = "0"] = String(numeric).split(".");
+            return {
+                major: Number(majorText),
+                minor: Number(minorText),
+                numeric
+            };
+        };
+
+        const minFormat = parseFormat(pack.min_format);
+        const maxFormat = parseFormat(pack.max_format);
+        const modern = minFormat !== null && maxFormat !== null;
+        if (modern && minFormat.numeric > maxFormat.numeric) throw new Error("Invalid pack.mcmeta format range");
+        if (!Number.isFinite(Number(pack.pack_format)) && modern) pack.pack_format = maxFormat.numeric;
+        if (!Number.isFinite(Number(pack.pack_format))) throw new Error("Missing a resource pack format in pack.mcmeta");
+        if (pack.pack_format < 4 ) {
             throw new Error("Only supports pack_format 4 (v.13–1.14.4), 5 (v.15–1.16.1), 6 (v1.16.2-.16.5), 7 (v1.17), 8(v1.18), or 9(v1.19)!");
         }
 
+        // The browser app currently passes no version options. Detect only the
+        // exact supported Java profile; unknown future pack formats stay legacy.
+        if (modern && minFormat.major === 97 && minFormat.minor === 1
+            && maxFormat.major === 97 && maxFormat.minor === 1) {
+            if (!this.options.javaVersion) this.options.javaVersion = "26.3";
+            if (!this.options.bedrockVersion) this.options.bedrockVersion = "1.26.50.4";
+        }
+        const description = typeof pack.description === "string" ? pack.description : JSON.stringify(pack.description || "Java resource pack");
         const manifest = {
-            "format_version": 1,
+            "format_version": modern ? 2 : 1,
             "header": {
-                "description": MetadataConverter.mcmeta.pack.description,
+                "description": description,
                 "name": await this.input.getName(),
                 "platform_locked": false,
                 "uuid": uuid_header,
@@ -61,6 +93,7 @@ class MetadataConverter extends AbstractConverter {
             }]
         };
 
+        if (modern) manifest.header.min_engine_version = [1, 26, 0];
         await this.writeJson(to, manifest);
 
         to_delete.push(new DeleteConverter(from));

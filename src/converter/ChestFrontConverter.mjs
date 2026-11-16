@@ -10,6 +10,9 @@ class ChestFrontConverter extends AbstractConverter {
     async convert() {
         const [from, to] = this.data;
 
+        // Modern profile already generated a 16x16 face from the original Java atlas.
+        if (this.options?.javaVersion === "26.3" && this.options?.bedrockVersion === "1.26.50.4" && await this.output.exists(to)) return [];
+
         if (!await this.output.exists(from)) {
             return [];
         }

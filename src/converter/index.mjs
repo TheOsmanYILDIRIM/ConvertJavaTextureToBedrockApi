@@ -6,6 +6,9 @@ import { BannerPatternBlackConverter } from "./BannerPatternBlackConverter.mjs";
 import { BannerPatternPreviewMaxSizeConverter } from "./BannerPatternPreviewMaxSizeConverter.mjs";
 import { BarConverter } from "./BarConverter.mjs";
 import { BedConverter } from "./BedConverter.mjs";
+import { ModernBedFacesConverter } from "./ModernBedFacesConverter.mjs";
+import { ModernSignConverter } from "./ModernSignConverter.mjs";
+import { ModernBambooFenceGateConverter } from "./ModernBambooFenceGateConverter.mjs";
 import { BeeConverter } from "./BeeConverter.mjs";
 import { ChestFrontConverter } from "./ChestFrontConverter.mjs";
 import { ChestLeftRightDoubleConverter } from "./ChestLeftRightDoubleConverter.mjs";
@@ -29,6 +32,7 @@ import { HorseConverter } from "./HorseConverter.mjs";
 import { IconsConverter } from "./IconsConverter.mjs";
 import { MapIconsConverter } from "./MapIconsConverter.mjs";
 import { MetadataConverter } from "./MetadataConverter.mjs";
+import { CustomBlockModelConverter } from "./CustomBlockModelConverter.mjs";
 import { NineSliceConverter } from "./NineSliceConverter.mjs";
 import { OpaqueConverter } from "./OpaqueConverter.mjs";
 import { OverlayToTranslateConverter } from "./OverlayToTranslateConverter.mjs";
@@ -46,6 +50,13 @@ import { TurtleConverter } from "./TurtleConverter.mjs";
 import { VillagerConverter } from "./VillagerConverter.mjs";
 import { WaterConverter } from "./WaterConverter.mjs";
 import { WeatherConverter } from "./WeatherConverter.mjs";
+import { ModernVersionedRenameConverter } from "./ModernVersionedRenameConverter.mjs";
+import { ModernEntityFamilyConverter } from "./ModernEntityFamilyConverter.mjs";
+import { ModernStructuralFamilyConverter } from "./ModernStructuralFamilyConverter.mjs";
+import { ModernChestInventoryConverter } from "./ModernChestInventoryConverter.mjs";
+import { ModernBiomeTintConverter } from "./ModernBiomeTintConverter.mjs";
+import { ModernExactParityConverter } from "./ModernExactParityConverter.mjs";
+import { OptifineRandomBlockVariantConverter } from "./OptifineRandomBlockVariantConverter.mjs";
 
 /**
  * @type {Function<AbstractConverter>[]}
@@ -53,10 +64,18 @@ import { WeatherConverter } from "./WeatherConverter.mjs";
 const converters = [
     FixWrongRootFolderConverter,
     MetadataConverter,
+    CustomBlockModelConverter,
     RenameConverter,
+    ModernEntityFamilyConverter,
+    ModernStructuralFamilyConverter,
+    ModernChestInventoryConverter,
+    ModernVersionedRenameConverter,
     AtlasConverter,
     BannerPatternConverter,
     BedConverter,
+    ModernBedFacesConverter,
+    ModernSignConverter,
+    ModernBambooFenceGateConverter,
     ChestNormalConverter,
     ChestLeftRightDoubleConverter,
     ChestFrontConverter,
@@ -87,6 +106,8 @@ const converters = [
     DialogConverter,
     OverlayToTranslateConverter,
     ColorizeOverlayConverter,
+    ModernBiomeTintConverter,
+    ModernExactParityConverter,
     PlaceholderConverter,
     SideRotateConverter,
     ArrowConverter,
@@ -97,6 +118,7 @@ const converters = [
     BannerPatternPreviewMaxSizeConverter,
     PngToTgaConverter,
     CopyConverter,
+    OptifineRandomBlockVariantConverter,
     DeleteConverter
 ];
 

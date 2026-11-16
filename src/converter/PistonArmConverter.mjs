@@ -97,6 +97,17 @@ class PistonArmConverter extends AbstractConverter {
         image.composite(side_image_5, (83 * factor), (25 * factor));
         image.composite(side_image_5, (83 * factor), (29 * factor));
 
+        // Canonicalize fully transparent pixels. Hidden RGB is not part of the
+        // UV image and otherwise depends on intermediate Jimp buffer behavior
+        // at different texture resolutions.
+        image.scan(0, 0, image.getWidth(), image.getHeight(), (x, y, idx) => {
+            if (image.bitmap.data[idx + 3] === 0) {
+                image.bitmap.data[idx] = 0;
+                image.bitmap.data[idx + 1] = 0;
+                image.bitmap.data[idx + 2] = 0;
+            }
+        });
+
         await this.writeImage(to, image);
 
         return [];

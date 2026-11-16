@@ -1,0 +1,78 @@
+name: Build fork webapp Pages bundle
+
+on:
+  push:
+    branches:
+      - feature/java26-3-full-conversion
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-webapp:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout deploy repository
+        uses: actions/checkout@v4
+
+      - name: Checkout fork web app
+        uses: actions/checkout@v4
+        with:
+          repository: TheOsmanYILDIRIM/ConvertJavaTextureToBedrock
+          ref: main
+          path: web
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        working-directory: web
+        run: yarn install --ignore-engines
+
+      - name: Build
+        working-directory: web
+        continue-on-error: true
+        env:
+          NODE_OPTIONS: --openssl-legacy-provider
+        run: yarn build
+
+      - name: Verify emitted bundle
+        if: always()
+        run: |
+          test -f web/build/index.html
+          grep -q "Java 26.3 conversions enabled" web/build/index.html
+          worker_count="$(find web/build -maxdepth 1 -name 'worker.*.js' | wc -l)"
+          test "$worker_count" -ge 1
+          grep -R -q "Custom Java block models detected" web/build/worker.*.js
+          grep -R -q "j2b_companion/blocks/" web/build/worker.*.js
+          echo "Verified Pages bundle with fork worker markers."
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fork-pages-build
+          path: web/build
+          if-no-files-found: error
+          retention-days: 7
+      - name: Deploy verified web bundle to gh-pages
+        if: github.event_name == 'push' && github.ref == 'refs/heads/feature/java26-3-full-conversion'
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          branch: gh-pages
+          folder: web/build
+          clean: true
+      - name: Probe live Pages converter route
+        if: always()
+        run: |
+          set +e
+          for url in             "https://theosmanyildirim.github.io/ConvertJavaTextureToBedrockApi/"             "https://theosmanyildirim.github.io/ConvertJavaTextureToBedrockApi/index.html"             "https://theosmanyildirim.github.io/ConvertJavaTextureToBedrock/"; do
+            code="$(curl -L -sS -o /tmp/page.html -w '%{http_code}' "$url")"
+            echo "$code $url"
+            if [ "$code" = "200" ]; then
+              grep -o "Java 26.3 conversions enabled" /tmp/page.html | head -1 || true
+            fi
+          done

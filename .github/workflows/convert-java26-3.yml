@@ -1,0 +1,650 @@
+name: Convert Java 26.3 vanilla textures
+on:
+  push:
+    branches:
+      - feature/java26-3-full-conversion
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  convert:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkout pinned Java 26.3 assets
+        uses: actions/checkout@v4
+        with:
+          repository: InventivetalentDev/minecraft-assets
+          ref: aaf3b3dbdf72b5723861324984813f3fd87db179
+          path: java-vanilla
+          sparse-checkout: |
+            assets/minecraft/textures
+          sparse-checkout-cone-mode: false
+          fetch-depth: 1
+      - name: Checkout pinned Bedrock reference textures
+        uses: actions/checkout@v4
+        with:
+          repository: Mojang/bedrock-samples
+          ref: 15701fa9c13923f12662984c32c124327e40e3d3
+          path: bedrock-vanilla
+          sparse-checkout: |
+            resource_pack/textures/entity
+            resource_pack/textures/blocks
+            resource_pack/textures/items
+            resource_pack/textures/particle
+            resource_pack/textures/environment
+            resource_pack/textures/colormap
+          sparse-checkout-cone-mode: false
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: |
+          npm install --omit=dev --no-audit --no-fund
+          python3 -m pip install --disable-pip-version-check --quiet 'Pillow>=10,<13'
+      - name: Check JavaScript
+        run: find src scripts -name '*.mjs' -print0 | xargs -0 -n1 node --check
+      - name: Prepare vanilla Java ZIP
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile,ZIP_DEFLATED
+          import json
+          origin=Path("java-vanilla/assets/minecraft/textures")
+          images=sorted(origin.rglob("*.png"))
+          assert len(images)>3500, len(images)
+          Path("build").mkdir(exist_ok=True)
+          with ZipFile("build/java_26_3_vanilla.zip","w",ZIP_DEFLATED,compresslevel=4) as z:
+              z.writestr("pack.mcmeta",json.dumps({"pack":{"description":"Java 26.3 vanilla conversion test","min_format":97.1,"max_format":97.1}}))
+              for f in images:z.write(f,str(Path("assets/minecraft/textures")/f.relative_to(origin)))
+          print("Java source PNGs",len(images))
+          PY
+      - name: Convert texture pack with fork engine
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
+        run: node scripts/convert-26-3.mjs build/java_26_3_vanilla.zip build/java26_3-to-bedrock1_26_50_4.mcpack >build/conversion.log 2>&1 || { tail -n 150 build/conversion.log; exit 1; }
+      - name: Prepare OptiFine random block variation fixture
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile,ZIP_DEFLATED
+          from PIL import Image
+          from io import BytesIO
+          import json
+          Path("build").mkdir(exist_ok=True)
+          def png(color):
+              im=Image.new("RGBA",(32,32),color)
+              b=BytesIO(); im.save(b,format="PNG"); return b.getvalue()
+          with ZipFile("build/optifine_random_fixture.zip","w",ZIP_DEFLATED) as z:
+              z.writestr("pack.mcmeta",json.dumps({"pack":{"description":"OptiFine random native variation fixture","min_format":[97,1],"max_format":[97,1]}}))
+              z.writestr("assets/minecraft/textures/block/gravel.png",png((100,100,100,255)))
+              z.writestr("assets/minecraft/optifine/ctm/gravel/gravel.properties","method=random\nmatchTiles=gravel\ntiles=0 1 <default>\nweights=5 2 1\n")
+              z.writestr("assets/minecraft/optifine/ctm/gravel/0.png",png((255,0,0,255)))
+              z.writestr("assets/minecraft/optifine/ctm/gravel/1.png",png((0,255,0,255)))
+              z.writestr("assets/minecraft/optifine/ctm/ignored/ignored.properties","method=ctm\nmatchTiles=gravel\ntiles=0-46\n")
+              z.writestr("assets/minecraft/optifine/ctm/ignored/0.png",png((0,0,255,255)))
+          PY
+      - name: Convert OptiFine random block variation fixture
+        run: node scripts/convert-26-3.mjs build/optifine_random_fixture.zip build/optifine_random_fixture.mcpack >build/optifine-random.log 2>&1 || { cat build/optifine-random.log; exit 1; }
+      - name: Verify Bedrock native random variations and HD preservation
+        run: |
+          python3 - <<'PY'
+          from zipfile import ZipFile
+          from io import BytesIO
+          from PIL import Image
+          import json
+          with ZipFile("build/optifine_random_fixture.mcpack") as z:
+              names=set(z.namelist())
+              catalog=json.loads(z.read("textures/terrain_texture.json"))
+              variations=catalog["texture_data"]["gravel"]["textures"]["variations"]
+              assert variations == [
+                  {"path":"textures/blocks/optifine_random/gravel/gravel/variant_0","weight":5},
+                  {"path":"textures/blocks/optifine_random/gravel/gravel/variant_1","weight":2},
+                  {"path":"textures/blocks/gravel","weight":1},
+              ], variations
+              for index,color in [(0,(255,0,0,255)),(1,(0,255,0,255))]:
+                  path=f"textures/blocks/optifine_random/gravel/gravel/variant_{index}.png"
+                  assert path in names,path
+                  im=Image.open(BytesIO(z.read(path))).convert("RGBA")
+                  assert im.size==(32,32),im.size
+                  assert im.getpixel((0,0))==color,(path,im.getpixel((0,0)))
+              assert "assets/minecraft/optifine/ctm/gravel/gravel.properties" not in names
+              assert not any("optifine_random/ignored" in n for n in names)
+          print(json.dumps({"native_variations":"ok","weights":[5,2,1],"hd_variant_size":[32,32]}))
+          PY
+      - name: Prepare Java custom block model fixture
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile,ZIP_DEFLATED
+          from PIL import Image
+          from io import BytesIO
+          import json
+          Path("build").mkdir(exist_ok=True)
+          def png(color):
+              im=Image.new("RGBA",(32,32),color)
+              b=BytesIO(); im.save(b,format="PNG"); return b.getvalue()
+          parent={
+            "textures":{"surface":"minecraft:block/j2b_red"},
+            "elements":[{
+              "from":[1,0,2],"to":[15,12,14],
+              "faces":{
+                "north":{"texture":"#surface","uv":[0,0,16,16],"rotation":90},
+                "south":{"texture":"#surface","uv":[0,0,16,16]},
+                "east":{"texture":"#surface","uv":[0,0,16,16]},
+                "west":{"texture":"#surface","uv":[0,0,16,16]},
+                "up":{"texture":"#surface","uv":[0,0,16,16]},
+                "down":{"texture":"#surface","uv":[0,0,16,16]}
+              }
+            }]
+          }
+          child={"parent":"minecraft:block/j2b_parent","textures":{"surface":"minecraft:block/j2b_green"}}
+          blockstate={
+            "variants":{
+              "facing=north":{"model":"minecraft:block/j2b_child"},
+              "facing=east":{"model":"minecraft:block/j2b_child","y":90}
+            }
+          }
+          with ZipFile("build/custom_block_model_fixture.zip","w",ZIP_DEFLATED) as z:
+              z.writestr("pack.mcmeta",json.dumps({"pack":{"description":"Custom block model fixture","min_format":[97,1],"max_format":[97,1]}}))
+              z.writestr("assets/minecraft/models/block/j2b_parent.json",json.dumps(parent))
+              z.writestr("assets/minecraft/models/block/j2b_child.json",json.dumps(child))
+              z.writestr("assets/minecraft/blockstates/j2b_demo.json",json.dumps(blockstate))
+              z.writestr("assets/minecraft/textures/block/j2b_red.png",png((255,0,0,255)))
+              z.writestr("assets/minecraft/textures/block/j2b_green.png",png((0,255,0,255)))
+          PY
+      - name: Convert Java custom block model fixture to mcaddon
+        run: node scripts/convert-26-3.mjs build/custom_block_model_fixture.zip build/custom_block_model_fixture.mcaddon >build/custom-block-model.log 2>&1 || { cat build/custom-block-model.log; exit 1; }
+      - name: Verify custom block geometry and companion Behavior Pack
+        run: |
+          python3 - <<'PY'
+          from zipfile import ZipFile
+          from io import BytesIO
+          from PIL import Image
+          import json
+          with ZipFile("build/custom_block_model_fixture.mcaddon") as z:
+              names=set(z.namelist())
+              assert "J2B_RP/manifest.json" in names
+              assert "J2B_BP/manifest.json" in names
+              rp=json.loads(z.read("J2B_RP/manifest.json"))
+              bp=json.loads(z.read("J2B_BP/manifest.json"))
+              assert rp["header"]["pack_scope"]=="world"
+              assert rp["header"]["min_engine_version"]==[1,21,80]
+              assert bp["header"]["min_engine_version"]==[1,21,80]
+              assert any(d["uuid"]==bp["header"]["uuid"] for d in rp["dependencies"])
+              assert any(d["uuid"]==rp["header"]["uuid"] for d in bp["dependencies"])
+
+              report=json.loads(z.read("J2B_RP/j2b_custom_blocks.json"))
+              mappings=report["mappings"]
+              assert report["namespace"].startswith("j2b_"),report["namespace"]
+              assert len(report["namespace"])==12,report["namespace"]
+              assert len(mappings)==2,mappings
+              assert all(m["bedrock_block"].startswith(report["namespace"]+":") for m in mappings)
+              assert all(m["geometry"].startswith("geometry."+report["namespace"]+".") for m in mappings)
+              assert {m["java_variant"] for m in mappings}=={"facing=north","facing=east"}
+              assert all(m["java_model"]=="minecraft:block/j2b_child" for m in mappings)
+              assert all(m["java_block"]=="minecraft:j2b_demo" for m in mappings)
+
+              east=next(m for m in mappings if m["java_variant"]=="facing=east")
+              north=next(m for m in mappings if m["java_variant"]=="facing=north")
+              for m in mappings:
+                  geo_path="J2B_RP/"+m["geometry_file"]
+                  bp_path="J2B_BP/"+m["behavior_file"].removeprefix("j2b_companion/")
+                  tex_path="J2B_RP/"+m["texture_file"]
+                  assert geo_path in names,geo_path
+                  assert bp_path in names,bp_path
+                  assert tex_path in names,tex_path
+                  img=Image.open(BytesIO(z.read(tex_path))).convert("RGBA")
+                  assert img.size==(32,32),img.size
+                  assert img.getpixel((0,0))==(0,255,0,255),img.getpixel((0,0))
+                  block=json.loads(z.read(bp_path))["minecraft:block"]
+                  assert block["components"]["minecraft:geometry"]==m["geometry"]
+                  assert block["components"]["minecraft:material_instances"]["*"]["texture"]==m["texture_key"]
+
+              north_geo=json.loads(z.read("J2B_RP/"+north["geometry_file"]))["minecraft:geometry"][0]
+              east_geo=json.loads(z.read("J2B_RP/"+east["geometry_file"]))["minecraft:geometry"][0]
+              assert north_geo["description"]["texture_width"]==32
+              cube=north_geo["bones"][0]["cubes"][0]
+              assert cube["origin"]==[-7,0,-6],cube["origin"]
+              assert cube["size"]==[14,12,12],cube["size"]
+              assert cube["uv"]["north"]["uv"]==[0,0]
+              assert cube["uv"]["north"]["uv_size"]==[32,32]
+              assert cube["uv"]["north"]["uv_rotation"]==90
+              assert "rotation" not in north_geo["bones"][0]
+              assert east_geo["bones"][0]["rotation"]==[0,-90,0],east_geo["bones"][0]
+          print(json.dumps({"custom_blocks":2,"atlas_size":[32,32],"companion_bp":"ok","parent_texture_override":"ok","y_rotation":"ok"}))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: custom-block-model-addon-proof
+          path: |
+            build/custom_block_model_fixture.mcaddon
+            build/custom-block-model.log
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Prepare 3x full Java UV scale test pack
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile,ZIP_DEFLATED
+          from PIL import Image
+          from io import BytesIO
+          import json
+          origin=Path("java-vanilla/assets/minecraft/textures")
+          images=sorted(origin.rglob("*.png"))
+          assert len(images)>3500,len(images)
+          out=Path("build/java_26_3_vanilla_3x.zip")
+          with ZipFile(out,"w",ZIP_DEFLATED,compresslevel=3) as z:
+              z.writestr("pack.mcmeta",json.dumps({"pack":{"description":"Java 26.3 3x UV scale test","min_format":[97,1],"max_format":[97,1]}}))
+              for index,f in enumerate(images,1):
+                  with Image.open(f) as src:
+                      rgba=src.convert("RGBA")
+                      scaled=rgba.resize((rgba.width*3,rgba.height*3),Image.Resampling.NEAREST)
+                      buf=BytesIO()
+                      scaled.save(buf,format="PNG",optimize=False)
+                  z.writestr(str(Path("assets/minecraft/textures")/f.relative_to(origin)),buf.getvalue())
+                  if index%500==0: print("upscaled",index)
+          print("3x Java source PNGs",len(images))
+          PY
+      - name: Convert 3x full Java UV scale test pack
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
+        run: node scripts/convert-26-3.mjs build/java_26_3_vanilla_3x.zip build/java26_3_uv_hd_3x.mcpack >build/conversion-uv-hd-3x.log 2>&1 || { tail -n 200 build/conversion-uv-hd-3x.log; exit 1; }
+      - name: Verify UV converters preserve 3x resolution
+        run: |
+          python3 - <<'PY'
+          from zipfile import ZipFile
+          from io import BytesIO
+          from pathlib import Path
+          from PIL import Image
+          import json
+          targets=[
+            "textures/entity/horse/horse_black.png",
+            "textures/entity/horse2/horse_black.png",
+            "textures/entity/horse2/armor/horse_armor_none.png",
+            "textures/entity/dolphin.png",
+            "textures/entity/fox/fox.png",
+            "textures/entity/zombie/drowned.tga",
+            "textures/entity/turtle/turtle.png",
+            "textures/entity/arrows.png",
+            "textures/entity/dragon/dragon.tga",
+            "textures/entity/dragon/dragon_exploding.png",
+            "textures/entity/cow/cow_v2.png",
+            "textures/entity/pig/pig_saddle.png",
+            "textures/entity/saddle_v2.png",
+            "textures/entity/lead_knot.png",
+            "textures/entity/villager2/professions/unskilled.tga",
+            "textures/entity/zombie_villager2/professions/unskilled.tga",
+            "textures/entity/bed/red.png",
+            "textures/entity/sign.png",
+            "textures/entity/oak_hanging_sign.png",
+            "textures/blocks/bamboo_fence_gate.png",
+            "textures/entity/pistonarm/pistonArm.png",
+            "textures/blocks/copper_chain1.png",
+            "textures/items/compass_atlas.png",
+            "textures/particle/orange_poplar_leaves_atlas.png",
+            "textures/blocks/chest_front.png"
+          ]
+          proof=Path("build/uv-hd-proof")
+          proof.mkdir(parents=True,exist_ok=True)
+          report={}
+          with ZipFile("build/java26_3-to-bedrock1_26_50_4.mcpack") as base, ZipFile("build/java26_3_uv_hd_3x.mcpack") as hd:
+              bn=set(base.namelist()); hn=set(hd.namelist())
+              for path in targets:
+                  assert path in bn,path
+                  assert path in hn,path
+                  a=Image.open(BytesIO(base.read(path))).convert("RGBA")
+                  b=Image.open(BytesIO(hd.read(path))).convert("RGBA")
+                  expected_size=(a.width*3,a.height*3)
+                  assert b.size==expected_size,(path,a.size,b.size,expected_size)
+                  expected=a.resize(expected_size,Image.Resampling.NEAREST)
+                  exact=b.tobytes()==expected.tobytes()
+                  safe=path.replace("/","__").rsplit(".",1)[0]+".png"
+                  b.save(proof/safe)
+                  diff_pixels=sum(1 for bp,ep in zip(b.getdata(),expected.getdata()) if bp!=ep)
+                  if not exact:
+                      expected.save(proof/(safe[:-4]+"__expected.png"))
+                  report[path]={"base_size":list(a.size),"hd3x_size":list(b.size),"pixel_exact_to_base_3x":exact,"diff_pixels":diff_pixels}
+          (proof/"report.json").write_text(json.dumps(report,indent=2),encoding="utf-8")
+          print(json.dumps(report))
+          failed=[p for p,m in report.items() if not m["pixel_exact_to_base_3x"]]
+          assert not failed, f"3x scale-equivalence mismatches: {failed}"
+          PY
+      - name: Prepare HD chest scale test packs
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile,ZIP_DEFLATED
+          from PIL import Image
+          import json
+          src=Image.open("java-vanilla/assets/minecraft/textures/entity/chest/normal.png").convert("RGBA")
+          assert src.size==(64,64),src.size
+          root=Path("build/chest-hd-proof")
+          root.mkdir(parents=True,exist_ok=True)
+          for factor in (2,3,16):
+              scaled=src.resize((64*factor,64*factor),Image.Resampling.NEAREST)
+              png=root/f"java_normal_{factor}x.png"
+              scaled.save(png)
+              with ZipFile(root/f"java_chest_{factor}x.zip","w",ZIP_DEFLATED) as z:
+                  z.writestr("pack.mcmeta",json.dumps({"pack":{"description":f"Java 26.3 chest {factor}x scale test","min_format":[97,1],"max_format":[97,1]}}))
+                  z.write(png,"assets/minecraft/textures/entity/chest/normal.png")
+          PY
+      - name: Convert HD chest scale test packs
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: |
+          for factor in 2 3 16; do
+            node scripts/convert-26-3.mjs               "build/chest-hd-proof/java_chest_${factor}x.zip"               "build/chest-hd-proof/bedrock_chest_${factor}x.mcpack"               >"build/chest-hd-proof/conversion_${factor}x.log" 2>&1 || {
+                cat "build/chest-hd-proof/conversion_${factor}x.log"
+                exit 1
+              }
+          done
+      - name: Verify HD chest scale invariance
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          from io import BytesIO
+          from PIL import Image
+          import json
+          root=Path("build/chest-hd-proof")
+          names=["chest_front.png","chest_side.png","chest_top.png"]
+          report={}
+          with ZipFile("build/java26_3-to-bedrock1_26_50_4.mcpack") as vanilla:
+              base={name:Image.open(BytesIO(vanilla.read("textures/blocks/"+name))).convert("RGBA") for name in names}
+          for factor in (2,3,16):
+              with ZipFile(root/f"bedrock_chest_{factor}x.mcpack") as hd:
+                  factor_report={}
+                  for name in names:
+                      path="textures/blocks/"+name
+                      hi=Image.open(BytesIO(hd.read(path))).convert("RGBA")
+                      expected_size=(16*factor,16*factor)
+                      assert hi.size==expected_size,(factor,name,hi.size,expected_size)
+                      expected=base[name].resize(expected_size,Image.Resampling.NEAREST)
+                      assert hi.tobytes()==expected.tobytes(), f"{factor}x scale-equivalence mismatch: {name}"
+                      hi.save(root/f"{factor}x_{name}")
+                      factor_report[name]={
+                          "atlas_size":[64*factor,64*factor],
+                          "output_size":list(hi.size),
+                          "pixel_exact_to_vanilla_output_scaled":True
+                      }
+                  report[f"{factor}x"]=factor_report
+          (root/"report.json").write_text(json.dumps(report,indent=2),encoding="utf-8")
+          print(json.dumps(report))
+          PY
+      - name: Check Bedrock result
+        run: |
+          python3 - <<'PY'
+          import json,zipfile
+          from pathlib import Path
+          p="build/java26_3-to-bedrock1_26_50_4.mcpack"
+          with zipfile.ZipFile(p) as z:
+              assert z.testzip() is None
+              a=set(z.namelist())
+              m=json.loads(z.read("manifest.json"))
+              count=sum(x.endswith(".png") for x in a)
+              assert m["format_version"]==2,m
+              assert m["header"]["min_engine_version"]==[1,26,0]
+              assert count>1000,count
+              beds=["white","orange","magenta","light_blue","yellow","lime","pink","gray","light_gray","cyan","purple","blue","brown","green","red","black"]
+              woods=["oak","spruce","birch","jungle","acacia","dark_oak","mangrove","cherry","bamboo","crimson","warped","pale_oak","poplar"]
+              modern_suffix={"bamboo","cherry","mangrove","pale_oak","poplar"}
+              expected_beds={f"textures/entity/bed/{'silver' if c=='light_gray' else c}.png" for c in beds}
+              expected_signs={f"textures/entity/{w}_hanging_sign.png" for w in woods}
+              expected_signs|={f"textures/entity/{'sign' if w=='oak' else w+'_sign' if w in modern_suffix else 'sign_'+('darkoak' if w=='dark_oak' else w)}.png" for w in woods}
+              expected_copper={f"textures/entity/chest/copper_{variant}{suffix}.png" for variant in ["default","exposed","weathered","oxidized"] for suffix in ["","_double"]}
+              expected_opaque={"textures/blocks/leaves_oak_opaque.png","textures/blocks/leaves_birch_opaque.png"}
+              entity_family_required={"textures/entity/camel/camel.png","textures/entity/camel_husk/camel_husk.png","textures/entity/horse2/horse_black.png","textures/entity/horse2/mule.png","textures/entity/horse2/armor/horse_armor_copper.png","textures/entity/horse2/armor/horse_armor_netherite.png","textures/entity/pig/pig_saddle.png","textures/entity/saddle_v2.png","textures/entity/dolphin.png","textures/entity/fox/arctic_fox.png","textures/entity/lead_knot.png","textures/entity/cow/cow_v2.png","textures/entity/cow/brown_mooshroom_v2.png","textures/entity/cow/mooshroom_v2.png","textures/entity/villager2/biomes/biome_savanna_baby.png","textures/entity/villager2/biomes/biome_swamp_baby.png","textures/entity/zombie_villager2/biomes/biome_plains_baby.png","textures/entity/zombie_villager2/biomes/biome_savanna_baby.png","textures/entity/zombie_villager2/biomes/biome_swamp_baby.png","textures/entity/villager2/professions/unskilled.tga","textures/entity/zombie_villager2/professions/unskilled.tga"}
+              structural_family_required={"textures/blocks/copper_chain1.png","textures/blocks/copper_chain2.png","textures/blocks/exposed_copper_chain1.png","textures/blocks/exposed_copper_chain2.png","textures/blocks/weathered_copper_chain1.png","textures/blocks/weathered_copper_chain2.png","textures/blocks/oxidized_copper_chain1.png","textures/blocks/oxidized_copper_chain2.png","textures/blocks/eyeblossom_blooming.png","textures/blocks/lightning_rod_powered.png","textures/items/bundle_open.png","textures/items/bundle_black_open.png","textures/items/bundle_blue_open.png","textures/items/compass_atlas.png","textures/items/recovery_compass_atlas.png","textures/particle/geyser_base.png","textures/particle/sculk_charge_pop.png","textures/particle/sculk_soul.png","textures/particle/small_gust.png","textures/particle/soul.png","textures/particle/orange_poplar_leaves_atlas.png","textures/particle/red_poplar_leaves_atlas.png","textures/particle/yellow_poplar_leaves_atlas.png"}
+              tint_family_required={"textures/blocks/grass_carried.png","textures/blocks/double_plant_fern_carried.png","textures/blocks/double_plant_grass_carried.png","textures/blocks/fern_carried.tga","textures/blocks/tallgrass.tga","textures/blocks/tallgrass_carried.tga","textures/blocks/vine_carried.png","textures/blocks/leaves_oak_carried.tga","textures/blocks/leaves_spruce_carried.tga","textures/items/bush.png"}
+              pane_colors=["","black","blue","brown","cyan","gray","green","light_blue","silver","lime","magenta","orange","pink","purple","red","white","yellow"]
+              pane_family={f"textures/blocks/glass_pane_top{('_'+c) if c else ''}.png" for c in pane_colors}
+              copper_inventory={f"textures/blocks/{prefix}_copper_chest_inventory_{face}.png" for prefix in ["exposed","weathered","oxidized"] for face in ["front","side","top"]}
+              copper_inventory|={f"textures/blocks/copper_chest_inventory_{face}.png" for face in ["front","side","top"]}
+              chest_inventory={"textures/blocks/chest_front.png","textures/blocks/chest_side.png","textures/blocks/chest_top.png","textures/blocks/trapped_chest_front.png","textures/blocks/ender_chest_front.png","textures/blocks/ender_chest_side.png","textures/blocks/ender_chest_top.png"}
+              exact_family_required={"textures/environment/end_sky.png","textures/environment/sun_vv.png","textures/entity/pig/pig.png","textures/blocks/carrots_stage_3.png","textures/blocks/cherry_log_side.png","textures/blocks/pale_moss.png","textures/blocks/shelf_mushroom_large.png","textures/blocks/shelf_mushroom_small.png","textures/blocks/stripped_cherry_log_side.png","textures/entity/boat/cherry_boat.png","textures/entity/boat/mangrove_boat.png","textures/entity/chicken/chicken.png","textures/entity/guardian_elder.png","textures/entity/squid.png","textures/items/spawn_egg_sulfur_cube.png","textures/items/spawn_eggs/spawn_egg_sulfur_cube.png"}
+              liquid_family={"textures/blocks/water_still.png","textures/blocks/water_flow.png","textures/blocks/water_still_grey.png","textures/blocks/water_flow_grey.png","textures/blocks/lava_still.png","textures/blocks/lava_flow.png"}
+              required=expected_beds | expected_signs | expected_copper | expected_opaque | entity_family_required | structural_family_required | tint_family_required | pane_family | copper_inventory | chest_inventory | exact_family_required | liquid_family | {"textures/particle/particles.png"}
+              missing=sorted(required-a)
+              assert not missing, f"Missing generated family textures: {missing}"
+
+              from io import BytesIO
+              from PIL import Image,ImageChops
+              reference_root=Path("bedrock-vanilla/resource_pack")
+
+              def output_rgba(name):
+                  return Image.open(BytesIO(z.read(name))).convert("RGBA")
+
+              def reference_rgba(name):
+                  return Image.open(reference_root / name).convert("RGBA")
+
+              def java_chest(name):
+                  return Image.open(Path("java-vanilla/assets/minecraft/textures/entity/chest") / name).convert("RGBA")
+
+              def rgba_diff_pixels(a,b):
+                  assert a.size==b.size,(a.size,b.size)
+                  return sum(1 for ap,bp in zip(a.getdata(),b.getdata()) if ap != bp)
+
+              def nearest14_to16(source,factor=1):
+                  java_uv=14
+                  bedrock_uv=16
+                  assert source.size==(java_uv*factor,java_uv*factor),source.size
+                  out=Image.new("RGBA",(bedrock_uv*factor,bedrock_uv*factor))
+                  sp=source.load(); op=out.load()
+                  def source_pixel(dst):
+                      dst_cell=dst//factor
+                      sub=dst%factor
+                      src_cell=min(java_uv-1,int(((dst_cell+0.5)*java_uv)//bedrock_uv))
+                      return src_cell*factor+sub
+                  for yy in range(bedrock_uv*factor):
+                      sy=source_pixel(yy)
+                      for xx in range(bedrock_uv*factor):
+                          sx=source_pixel(xx)
+                          op[xx,yy]=sp[sx,sy]
+                  return out
+
+              assert [int(((x+0.5)*14)//16) for x in range(16)] == [0,1,2,3,3,4,5,6,7,8,9,10,10,11,12,13], "Chest resize sampling phase regressed"
+
+              def expected_vertical_face(source,x,with_latch=False):
+                  lid=source.crop((x,14,x+14,19)).transpose(Image.Transpose.ROTATE_180)
+                  base=source.crop((x,33,x+14,42)).transpose(Image.Transpose.ROTATE_180)
+                  face=Image.new("RGBA",(14,14))
+                  face.paste(lid,(0,0)); face.paste(base,(0,5))
+                  if with_latch:
+                      face.alpha_composite(source.crop((1,1,3,5)),(6,3))
+                  return nearest14_to16(face)
+
+              chest_sources={
+                  "normal.png":{"front":"textures/blocks/chest_front.png","side":"textures/blocks/chest_side.png","top":"textures/blocks/chest_top.png"},
+                  "trapped.png":{"front":"textures/blocks/trapped_chest_front.png"},
+                  "ender.png":{"front":"textures/blocks/ender_chest_front.png","side":"textures/blocks/ender_chest_side.png","top":"textures/blocks/ender_chest_top.png"},
+                  "copper.png":{"front":"textures/blocks/copper_chest_inventory_front.png","side":"textures/blocks/copper_chest_inventory_side.png","top":"textures/blocks/copper_chest_inventory_top.png"},
+                  "copper_exposed.png":{"front":"textures/blocks/exposed_copper_chest_inventory_front.png","side":"textures/blocks/exposed_copper_chest_inventory_side.png","top":"textures/blocks/exposed_copper_chest_inventory_top.png"},
+                  "copper_weathered.png":{"front":"textures/blocks/weathered_copper_chest_inventory_front.png","side":"textures/blocks/weathered_copper_chest_inventory_side.png","top":"textures/blocks/weathered_copper_chest_inventory_top.png"},
+                  "copper_oxidized.png":{"front":"textures/blocks/oxidized_copper_chest_inventory_front.png","side":"textures/blocks/oxidized_copper_chest_inventory_side.png","top":"textures/blocks/oxidized_copper_chest_inventory_top.png"},
+              }
+              chest_diff_pixels={}
+              for source_name,faces in chest_sources.items():
+                  source=java_chest(source_name)
+                  assert source.size==(64,64),(source_name,source.size)
+                  for face,target in faces.items():
+                      out=output_rgba(target); ref=reference_rgba(target)
+                      assert out.size==(16,16),(target,out.size)
+                      if face=="front":
+                          expected=expected_vertical_face(source,42,True)
+                      elif face=="side":
+                          expected=expected_vertical_face(source,28,False)
+                      else:
+                          expected=nearest14_to16(source.crop((28,0,42,14)).transpose(Image.Transpose.FLIP_TOP_BOTTOM))
+                      assert out.tobytes()==expected.tobytes(), f"Chest Java UV crop/scale mismatch: {target}"
+                      chest_diff_pixels[target]=rgba_diff_pixels(out,ref)
+
+              exact_hanging=["oak","spruce","birch","jungle","acacia","dark_oak",
+                             "mangrove","cherry","bamboo","crimson","warped","pale_oak"]
+              for wood in exact_hanging:
+                  name=f"textures/entity/{wood}_hanging_sign.png"
+                  out=output_rgba(name)
+                  ref=reference_rgba(name)
+                  assert out.size==ref.size,(name,out.size,ref.size)
+                  assert ImageChops.difference(out,ref).getbbox() is None, f"Hanging sign pixel mismatch: {wood}"
+
+              # Poplar geometry is shared, but the pinned Java/Bedrock source
+              # snapshots use slightly different poplar colours.
+              poplar=output_rgba("textures/entity/poplar_hanging_sign.png")
+              poplar_ref=reference_rgba("textures/entity/poplar_hanging_sign.png")
+              assert poplar.getchannel("A").tobytes()==poplar_ref.getchannel("A").tobytes(), "Poplar hanging sign UV mismatch"
+
+              gate=output_rgba("textures/blocks/bamboo_fence_gate.png")
+              gate_ref=reference_rgba("textures/blocks/bamboo_fence_gate.png")
+              assert ImageChops.difference(gate,gate_ref).getbbox() is None, "Bamboo fence gate pixel mismatch"
+
+              oak=output_rgba("textures/blocks/leaves_oak_opaque.png")
+              oak_ref=reference_rgba("textures/blocks/leaves_oak_opaque.png")
+              assert min(oak.getchannel("A").getextrema())==255, "Opaque oak still has transparency"
+              oak_delta=ImageChops.difference(oak,oak_ref)
+              assert max(channel[1] for channel in oak_delta.getextrema())<=1, f"Opaque oak diverges from Bedrock: {oak_delta.getextrema()}"
+
+              alpha_family=["textures/entity/camel/camel.png","textures/entity/camel_husk/camel_husk.png",
+                            "textures/entity/horse2/horse_black.png","textures/entity/horse2/mule.png",
+                            "textures/entity/dolphin.png","textures/entity/fox/arctic_fox.png",
+                            "textures/entity/cow/cow_v2.png"]
+              for name in alpha_family:
+                  out=output_rgba(name); ref=reference_rgba(name)
+                  assert out.size==ref.size,(name,out.size,ref.size)
+                  assert out.getchannel("A").tobytes()==ref.getchannel("A").tobytes(), f"Entity UV alpha mismatch: {name}"
+              for name in ["textures/entity/pig/pig_saddle.png","textures/entity/lead_knot.png"]:
+                  out=output_rgba(name); ref=reference_rgba(name)
+                  assert ImageChops.difference(out,ref).getbbox() is None, f"Entity exact mismatch: {name}"
+
+              arrow=output_rgba("textures/entity/arrows.png")
+              arrow_ref=reference_rgba("textures/entity/arrows.png")
+              assert arrow.getchannel("A").tobytes()==arrow_ref.getchannel("A").tobytes(), "Arrow UV/alpha mismatch"
+              arrow_delta=max(abs(a-b) for op,rp in zip(arrow.getdata(),arrow_ref.getdata()) if rp[3] for a,b in zip(op[:3],rp[:3]))
+              assert arrow_delta <= 3, f"Arrow visible RGB delta {arrow_delta}"
+
+              def assert_visible_exact(name):
+                  out=output_rgba(name); ref=reference_rgba(name)
+                  assert out.size==ref.size,(name,out.size,ref.size)
+                  assert out.getchannel("A").tobytes()==ref.getchannel("A").tobytes(), f"Alpha mismatch: {name}"
+                  op=out.load(); rp=ref.load()
+                  for yy in range(out.height):
+                      for xx in range(out.width):
+                          if rp[xx,yy][3] and op[xx,yy] != rp[xx,yy]:
+                              raise AssertionError(f"Visible pixel mismatch: {name} @ {(xx,yy)}")
+
+              professions=["armorer","butcher","cartographer","cleric","farmer","fisherman","fletcher","leatherworker","librarian","nitwit","shepherd","stonemason","toolsmith","weaponsmith"]
+              for profession in professions:
+                  if profession != "cleric":
+                      assert_visible_exact(f"textures/entity/villager2/professions/{profession}.tga")
+                  assert_visible_exact(f"textures/entity/zombie_villager2/professions/{profession}.tga")
+              cleric=output_rgba("textures/entity/villager2/professions/cleric.tga")
+              cleric_ref=reference_rgba("textures/entity/villager2/professions/cleric.tga")
+              assert cleric.getchannel("A").tobytes()==cleric_ref.getchannel("A").tobytes(), "cleric UV/alpha mismatch"
+              cleric_visible_diffs=sum(1 for op,rp in zip(cleric.getdata(),cleric_ref.getdata()) if rp[3] and op[:3] != rp[:3])
+              assert cleric_visible_diffs <= 14, f"cleric visible edition-art drift {cleric_visible_diffs}"
+
+              assert_visible_exact("textures/entity/dragon/dragon.tga")
+              dragon_exploding=output_rgba("textures/entity/dragon/dragon_exploding.png")
+              dragon_exploding_ref=reference_rgba("textures/entity/dragon/dragon_exploding.png")
+              assert [a>0 for a in dragon_exploding.getchannel("A").getdata()] == [a>0 for a in dragon_exploding_ref.getchannel("A").getdata()], "dragon exploding UV alpha-mask mismatch"
+              assert all(op[:3] == rp[:3] for op,rp in zip(dragon_exploding.getdata(),dragon_exploding_ref.getdata()) if rp[3]), "dragon exploding visible RGB mismatch"
+
+              for name in ["textures/blocks/copper_chain1.png","textures/blocks/copper_chain2.png",
+                           "textures/blocks/oxidized_copper_chain1.png","textures/blocks/oxidized_copper_chain2.png",
+                           "textures/blocks/eyeblossom_blooming.png","textures/blocks/lightning_rod_powered.png",
+                           "textures/items/bundle_blue_open.png","textures/items/compass_atlas.png","textures/items/recovery_compass_atlas.png",
+                           "textures/particle/sculk_charge_pop.png","textures/particle/sculk_soul.png",
+                           "textures/particle/small_gust.png","textures/particle/soul.png",
+                           "textures/particle/red_poplar_leaves_atlas.png","textures/particle/yellow_poplar_leaves_atlas.png"]:
+                  assert_visible_exact(name)
+
+              for name in sorted(pane_family) + ["textures/environment/end_sky.png","textures/environment/sun_vv.png"]:
+                  out=output_rgba(name); ref=reference_rgba(name)
+                  assert ImageChops.difference(out,ref).getbbox() is None, f"exact parity family mismatch: {name}"
+              pig_legacy=output_rgba("textures/entity/pig/pig.png")
+              pig_legacy_ref=reference_rgba("textures/entity/pig/pig.png")
+              assert pig_legacy.size==pig_legacy_ref.size
+              assert pig_legacy.getchannel("A").tobytes()==pig_legacy_ref.getchannel("A").tobytes(), "legacy pig UV mismatch"
+              for name in copper_inventory | chest_inventory:
+                  assert output_rgba(name).size==(16,16), (name,output_rgba(name).size)
+
+              grass=output_rgba("textures/blocks/grass_carried.png")
+              grass_ref=reference_rgba("textures/blocks/grass_carried.png")
+              assert ImageChops.difference(grass,grass_ref).getbbox() is None, "grass carried colormap tint mismatch"
+              bush=output_rgba("textures/items/bush.png")
+              bush_ref=reference_rgba("textures/items/bush.png")
+              assert bush.getchannel("A").tobytes()==bush_ref.getchannel("A").tobytes(), "bush alpha mismatch"
+              bush_delta=max(abs(a-b) for op,rp in zip(bush.getdata(),bush_ref.getdata()) for a,b in zip(op[:3],rp[:3]))
+              assert bush_delta <= 1, f"bush visible tint delta {bush_delta}"
+
+              water_alpha={
+                  "textures/blocks/water_still.png":255,
+                  "textures/blocks/water_flow.png":255,
+                  "textures/blocks/water_still_grey.png":240,
+                  "textures/blocks/water_flow_grey.png":255,
+              }
+              for name,alpha in water_alpha.items():
+                  out=output_rgba(name)
+                  assert out.getchannel("A").getextrema()==(alpha,alpha), (name,out.getchannel("A").getextrema())
+
+              lava_flow=output_rgba("textures/blocks/lava_flow.png")
+              lava_flow_ref=reference_rgba("textures/blocks/lava_flow.png")
+              assert ImageChops.difference(lava_flow,lava_flow_ref).getbbox() is None, "lava_flow mismatch"
+
+              lava_still=output_rgba("textures/blocks/lava_still.png")
+              lava_still_ref=reference_rgba("textures/blocks/lava_still.png")
+              assert lava_still.width==16 and lava_still.height%16==0
+              assert lava_still_ref.size==(16,512)
+              # The pinned Java source has 20 frames while current Bedrock ships 32.
+              # The shared first 19 frames are exact; do not invent/bake the Bedrock-only tail
+              # into custom packs merely to force vanilla-reference dimensions.
+              shared_h=19*16
+              assert ImageChops.difference(lava_still.crop((0,0,16,shared_h)),lava_still_ref.crop((0,0,16,shared_h))).getbbox() is None, "lava_still shared frames mismatch"
+
+              print(json.dumps({"pngs":count,"total":len(a),"beds":len(expected_beds),"signs":len(expected_signs),"copper_chests":len(expected_copper),"entity_family_targets":len(entity_family_required),"structural_family_targets":len(structural_family_required),"tint_family_targets":len(tint_family_required),"pixel_verified":{"hanging_signs":13,"bamboo_fence_gate":True,"oak_opaque_max_channel_delta":1,"entity_alpha_family":len(alpha_family),"entity_exact":2,"villager_profession_exact":27,"villager_cleric_visible_diffs":cleric_visible_diffs,"dragon_base_exact":1,"dragon_exploding_uv_mask_exact":True,"arrow_max_channel_delta":arrow_delta,"structural_visible_exact":15,"grass_colormap_exact":True,"bush_max_channel_delta":bush_delta,"water_alpha_contract":water_alpha,"lava_flow_exact":True,"lava_still_shared_exact_frames":19,"lava_still_java_frames":lava_still.height//16,"lava_still_bedrock_frames":lava_still_ref.height//16,"chest_diff_pixels":chest_diff_pixels}}))
+          PY
+      - name: Build chest output vs Bedrock review
+        if: always()
+        run: |
+          if [ -f build/java26_3-to-bedrock1_26_50_4.mcpack ]; then
+            python3 scripts/build-chest-review.py \
+              --mcpack build/java26_3-to-bedrock1_26_50_4.mcpack \
+              --bedrock-root bedrock-vanilla/resource_pack/textures \
+              --out build/chest-review
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: converted-java26-3-bedrock-pack
+          path: |
+            build/java_26_3_vanilla.zip
+            build/java26_3-to-bedrock1_26_50_4.mcpack
+            build/conversion.log
+          if-no-files-found: warn
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: chest-output-vs-bedrock
+          path: build/chest-review
+          if-no-files-found: warn
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: chest-hd-scaling-proof
+          path: build/chest-hd-proof
+          if-no-files-found: warn
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: uv-hd-3x-proof
+          path: |
+            build/uv-hd-proof
+            build/conversion-uv-hd-3x.log
+          if-no-files-found: warn
+          retention-days: 7
