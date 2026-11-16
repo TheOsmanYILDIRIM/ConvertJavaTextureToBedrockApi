@@ -80,15 +80,33 @@ jobs:
           with ZipFile("build/optifine_random_fixture.zip","w",ZIP_DEFLATED) as z:
               z.writestr("pack.mcmeta",json.dumps({"pack":{"description":"OptiFine random native variation fixture","min_format":[97,1],"max_format":[97,1]}}))
               z.writestr("assets/minecraft/textures/block/gravel.png",png((100,100,100,255)))
-              z.writestr("assets/minecraft/optifine/ctm/gravel/gravel.properties","method=random\nmatchTiles=gravel\ntiles=0 1 <default>\nweights=5 2 1\n")
+              z.writestr("assets/minecraft/optifine/ctm/gravel/gravel.properties","method=random\nmatchTiles=gravel\nweight=100\ntiles=0 1 <default>\nweights=5 2 1\n")
               z.writestr("assets/minecraft/optifine/ctm/gravel/0.png",png((255,0,0,255)))
               z.writestr("assets/minecraft/optifine/ctm/gravel/1.png",png((0,255,0,255)))
+              p="assets/minecraft/optifine/ctm/"
+              t="assets/minecraft/textures/block/"
+              z.writestr(t+"grass_block_top.png",png((255,0,255,255)))
+              z.writestr(p+"patrix/grass/grass_block_2.properties","tiles=1-36\nmethod=repeat\nwidth=6\nheight=6\nmatchTiles=grass_block_top\n")
+              for n in range(1,37):
+                  z.writestr(p+f"patrix/grass/{n}.png",png((n,180,20,255)))
+              z.writestr(p+"patrix/grass/snow.properties","method=repeat\nweight=900\nwidth=1\nheight=1\nmatchTiles=grass_block_top\nmatchBlocks=minecraft:grass_block:snowy=true\ntiles=optifine/ctm/patrix/grass/snow.png\n")
+              z.writestr(p+"patrix/grass/snow.png",png((255,255,255,255)))
+              z.writestr(t+"glass.png",png((255,0,0,255)))
+              z.writestr(p+"glass/02_overlay.properties","method=overlay_random\nmatchTiles=glass\ntiles=blue clear\nweights=3 2\n")
+              z.writestr(p+"glass/blue.png",png((0,0,255,128)))
+              z.writestr(p+"glass/clear.png",png((0,0,0,0)))
+              z.writestr(p+"glass/01_fixed.properties","method=fixed\nmatchTiles=glass\ntiles=optifine/ctm/glass/base.png\n")
+              z.writestr(p+"glass/base.png",png((0,255,0,255)))
+              z.writestr(p+"glass/neighbor.properties","method=overlay_ctm\nmatchTiles=glass\ntiles=blue\n")
+              z.writestr(t+"stone.png",png((255,0,255,255)))
+              z.writestr(p+"stone/stone.properties","method=ctm\nmatchTiles=stone\ntiles=0-46\n")
+              z.writestr(p+"stone/0.png",png((70,80,90,255)))
               z.writestr("assets/minecraft/optifine/ctm/ignored/ignored.properties","method=ctm\nmatchTiles=gravel\ntiles=0-46\n")
               z.writestr("assets/minecraft/optifine/ctm/ignored/0.png",png((0,0,255,255)))
           PY
       - name: Convert OptiFine random block variation fixture
         run: node scripts/convert-26-3.mjs build/optifine_random_fixture.zip build/optifine_random_fixture.mcpack >build/optifine-random.log 2>&1 || { cat build/optifine-random.log; exit 1; }
-      - name: Verify Bedrock native random variations and HD preservation
+      - name: Verify packaged CTM variants, static fallbacks and baked overlay pixels
         run: |
           python3 - <<'PY'
           from zipfile import ZipFile
@@ -112,6 +130,29 @@ jobs:
                   assert im.getpixel((0,0))==color,(path,im.getpixel((0,0)))
               assert "assets/minecraft/optifine/ctm/gravel/gravel.properties" not in names
               assert not any("optifine_random/ignored" in n for n in names)
+              data=catalog["texture_data"]
+              def pixel(path):
+                  im=Image.open(BytesIO(z.read(path))).convert("RGBA")
+                  assert im.size==(32,32),(path,im.size)
+                  return im.getpixel((0,0))
+              grass=data["grass_top"]["textures"]
+              assert len(grass)==17 and len(set(grass))==1,grass
+              assert pixel(grass[0]+".png")==pixel("textures/blocks/grass_top.png")== (1,180,20,255)
+              assert not any("/grass/snow/" in n for n in names)
+              stone=data["stone"]["textures"]
+              assert len(stone)==7 and stone[1]=="textures/blocks/stone_granite",stone
+              assert pixel(stone[0]+".png")== (70,80,90,255)
+              glass=data["glass"]["textures"]["variations"]
+              assert [v["weight"] for v in glass]==[3,2],glass
+              assert [pixel(v["path"]+".png") for v in glass]==[(0,127,128,255),(0,255,0,255)]
+              assert not any("/glass/neighbor/" in n for n in names)
+              assert not any(n.startswith("assets/minecraft/optifine/ctm/") for n in names)
+              for entry in data.values():
+                  for slot in entry["textures"] if isinstance(entry["textures"],list) else [entry["textures"]]:
+                      paths=([slot] if isinstance(slot,str) else
+                             [v["path"] for v in slot.get("variations",[])] + ([slot["path"]] if "path" in slot else []))
+                      for p in paths:
+                          if p.startswith("textures/blocks/optifine_random/"): assert p+".png" in names,p
           print(json.dumps({"native_variations":"ok","weights":[5,2,1],"hd_variant_size":[32,32]}))
           PY
       - name: Prepare Java custom block model fixture
