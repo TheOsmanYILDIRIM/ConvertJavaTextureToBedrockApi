@@ -88,7 +88,10 @@ jobs:
               z.writestr(t+"grass_block_top.png",png((255,0,255,255)))
               z.writestr(p+"patrix/grass/grass_block_2.properties","tiles=1-36\nmethod=repeat\nwidth=6\nheight=6\nmatchTiles=grass_block_top\n")
               for n in range(1,37):
-                  z.writestr(p+f"patrix/grass/{n}.png",png((n,180,20,255)))
+                  im=Image.new("RGBA",(32,32),(1,180,20,255))
+                  im.putpixel((16,16),(n,180,20,255))
+                  b=BytesIO(); im.save(b,format="PNG")
+                  z.writestr(p+f"patrix/grass/{n}.png",b.getvalue())
               z.writestr(p+"patrix/grass/snow.properties","method=repeat\nweight=900\nwidth=1\nheight=1\nmatchTiles=grass_block_top\nmatchBlocks=minecraft:grass_block:snowy=true\ntiles=optifine/ctm/patrix/grass/snow.png\n")
               z.writestr(p+"patrix/grass/snow.png",png((255,255,255,255)))
               z.writestr(t+"glass.png",png((255,0,0,255)))
@@ -96,7 +99,10 @@ jobs:
               z.writestr(p+"glass/blue.png",png((0,0,255,128)))
               z.writestr(p+"glass/clear.png",png((0,0,0,0)))
               z.writestr(p+"glass/01_fixed.properties","method=fixed\nmatchTiles=glass\ntiles=optifine/ctm/glass/base.png\n")
-              z.writestr(p+"glass/base.png",png((0,255,0,255)))
+              z.writestr(p+"glass/base.png",png((255,0,0,255)))
+              z.writestr(p+"glass/00_dependent.properties","method=fixed\nmatchTiles=./base.png\ntiles=final\n")
+              z.writestr(p+"glass/final.png",png((0,255,0,255)))
+              z.writestr(p+"glass/03_second.properties","method=overlay_fixed\nmatchTiles=glass\ntiles=clear\n")
               z.writestr(p+"glass/neighbor.properties","method=overlay_ctm\nmatchTiles=glass\ntiles=blue\n")
               z.writestr(t+"stone.png",png((255,0,255,255)))
               z.writestr(p+"stone/stone.properties","method=ctm\nmatchTiles=stone\ntiles=0-46\n")
@@ -136,8 +142,12 @@ jobs:
                   assert im.size==(32,32),(path,im.size)
                   return im.getpixel((0,0))
               grass=data["grass_top"]["textures"]
-              assert len(grass)==17 and len(set(grass))==1,grass
-              assert pixel(grass[0]+".png")==pixel("textures/blocks/grass_top.png")== (1,180,20,255)
+              assert len(grass)==17 and all(slot==grass[0] for slot in grass),grass
+              variants=grass[0]["variations"]
+              assert len(variants)==36 and all(v["weight"]==1 for v in variants),variants
+              assert pixel(variants[0]["path"]+".png")==pixel("textures/blocks/grass_top.png")== (1,180,20,255)
+              for i,v in enumerate(variants,1):
+                  assert Image.open(BytesIO(z.read(v["path"]+".png"))).convert("RGBA").getpixel((16,16))==(i,180,20,255)
               assert not any("/grass/snow/" in n for n in names)
               stone=data["stone"]["textures"]
               assert len(stone)==7 and stone[1]=="textures/blocks/stone_granite",stone
