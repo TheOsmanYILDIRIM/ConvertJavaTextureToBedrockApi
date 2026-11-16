@@ -103,6 +103,11 @@ jobs:
               z.writestr(p+"glass/00_dependent.properties","method=fixed\nmatchTiles=./base.png\ntiles=final\n")
               z.writestr(p+"glass/final.png",png((0,255,0,255)))
               z.writestr(p+"glass/03_second.properties","method=overlay_fixed\nmatchTiles=glass\ntiles=clear\n")
+              z.writestr(p+"material/m.properties","method=random\nmatchTiles=diamond_block\ntiles=one two\nweights=2 3\n")
+              for name in ("one","two"):
+                  z.writestr(p+f"material/{name}.png",png((50,60,70,255)))
+                  z.writestr(p+f"material/{name}_n.png",png((127,127,250 if name=="one" else 255,255)))
+                  z.writestr(p+f"material/{name}.texture_set.json",json.dumps({"format_version":"1.16.100","minecraft:texture_set":{"color":name,"normal":name+"_n"}}))
               z.writestr(p+"glass/neighbor.properties","method=overlay_ctm\nmatchTiles=glass\ntiles=blue\n")
               z.writestr(t+"stone.png",png((255,0,255,255)))
               z.writestr(p+"stone/stone.properties","method=ctm\nmatchTiles=stone\ntiles=0-46\n")
@@ -112,6 +117,8 @@ jobs:
           PY
       - name: Convert OptiFine random block variation fixture
         run: node scripts/convert-26-3.mjs build/optifine_random_fixture.zip build/optifine_random_fixture.mcpack >build/optifine-random.log 2>&1 || { cat build/optifine-random.log; exit 1; }
+      - name: Convert CTM fixture with material maps disabled
+        run: node scripts/convert-26-3.mjs build/optifine_random_fixture.zip build/optifine_no_materials.mcpack --no-material-maps >build/optifine-no-materials.log 2>&1 || { cat build/optifine-no-materials.log; exit 1; }
       - name: Verify packaged CTM variants, static fallbacks and baked overlay pixels
         run: |
           python3 - <<'PY'
@@ -163,7 +170,21 @@ jobs:
                              [v["path"] for v in slot.get("variations",[])] + ([slot["path"]] if "path" in slot else []))
                       for p in paths:
                           if p.startswith("textures/blocks/optifine_random/"): assert p+".png" in names,p
-          print(json.dumps({"native_variations":"ok","weights":[5,2,1],"hd_variant_size":[32,32]}))
+              def material_variants(pack):
+                  mat=json.loads(pack.read("textures/terrain_texture.json"))["texture_data"]["diamond_block"]["textures"]
+                  if isinstance(mat,list): mat=mat[0]
+                  return mat["variations"]
+              material=material_variants(z)
+              assert [v["weight"] for v in material]==[2,3],material
+              for v in material:
+                  texture=v["path"]
+                  ts=json.loads(z.read(texture+".texture_set.json"))["minecraft:texture_set"]
+                  assert texture.rsplit("/",1)[0]+"/"+ts["normal"]+".png" in names
+          with ZipFile("build/optifine_no_materials.mcpack") as z:
+              mat=material_variants(z)
+              assert [v["weight"] for v in mat]==[5],mat
+              assert not any("/material/" in n and n.endswith(("_normal.png",".texture_set.json")) for n in z.namelist())
+          print(json.dumps({"weighted_random":"ok","repeat_tiles":36,"overlay_chain":"ok","material_opt_out":"ok"}))
           PY
       - name: Prepare Java custom block model fixture
         run: |

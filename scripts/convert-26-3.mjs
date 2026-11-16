@@ -21,6 +21,7 @@ const api = new ConvertJavaTextureToBedrockApi(
         javaVersion: "26.3",
         bedrockVersion: "1.26.50.4",
         experimental: false,
+        includeMaterialMaps: !process.argv.slice(4).includes("--no-material-maps"),
         keepCompanionStaging: addonMode
     }
 );
