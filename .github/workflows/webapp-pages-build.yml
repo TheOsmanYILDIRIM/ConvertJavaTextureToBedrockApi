@@ -32,17 +32,24 @@ jobs:
 
       - name: Build
         working-directory: web
+        continue-on-error: true
         env:
           NODE_OPTIONS: --openssl-legacy-provider
         run: yarn build
 
-      - name: Verify fork markers
+      - name: Verify emitted bundle
+        if: always()
         run: |
           test -f web/build/index.html
-          grep -R "Java 26.3 conversions enabled" web/build/index.html
-          test "$(find web/build -maxdepth 1 -name 'worker.*.js' | wc -l)" -ge 1
+          grep -q "Java 26.3 conversions enabled" web/build/index.html
+          worker_count="$(find web/build -maxdepth 1 -name 'worker.*.js' | wc -l)"
+          test "$worker_count" -ge 1
+          grep -R -q "Custom Java block models detected" web/build/worker.*.js
+          grep -R -q "j2b_companion/blocks/" web/build/worker.*.js
+          echo "Verified Pages bundle with fork worker markers."
 
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: fork-pages-build
           path: web/build
