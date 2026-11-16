@@ -6,6 +6,10 @@ on:
       - feature/java26-3-full-conversion
   workflow_dispatch:
 
+concurrency:
+  group: fork-webapp-pages-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
@@ -29,9 +33,30 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Pin web bundle to the checked-out API commit
+        run: |
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          node <<'NODE'
+          const fs = require("node:fs");
+          const file = "web/package.json";
+          const pkg = JSON.parse(fs.readFileSync(file, "utf8"));
+          const name = "@modifiedcommand/convert-minecraft-java-texture-to-bedrock-api";
+          const sha = process.env.GITHUB_SHA;
+          if (!/^[0-9a-f]{40}$/.test(sha) || !pkg.devDependencies?.[name]) {
+            throw new Error("Cannot pin Pages build to its API commit");
+          }
+          pkg.devDependencies[name] = "github:TheOsmanYILDIRIM/ConvertJavaTextureToBedrockApi#" + sha;
+          pkg.version = pkg.version.split("+")[0] + "+api." + sha.slice(0, 8);
+          fs.writeFileSync(file, JSON.stringify(pkg, null, 2) + "\n");
+          NODE
+
       - name: Install dependencies
         working-directory: web
         run: yarn install --ignore-engines
+
+      - name: Verify installed API matches this checkout
+        run: |
+          diff -qr src web/node_modules/@modifiedcommand/convert-minecraft-java-texture-to-bedrock-api/src
 
       - name: Build
         working-directory: web
@@ -41,15 +66,16 @@ jobs:
         run: yarn build
 
       - name: Verify emitted bundle
-        if: always()
         run: |
           test -f web/build/index.html
           grep -q "Java 26.3 conversions enabled" web/build/index.html
+          grep -Fq "+api.${GITHUB_SHA:0:8}" web/build/index.html
           worker_count="$(find web/build -maxdepth 1 -name 'worker.*.js' | wc -l)"
           test "$worker_count" -ge 1
           grep -R -q "Custom Java block models detected" web/build/worker.*.js
           grep -R -q "j2b_companion/blocks/" web/build/worker.*.js
-          echo "Verified Pages bundle with fork worker markers."
+          grep -R -q "Nonstandard pack.mcmeta" web/build/worker.*.js
+          echo "Verified Pages worker and visible API revision: $GITHUB_SHA"
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -59,7 +85,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
       - name: Deploy verified web bundle to gh-pages
-        if: github.event_name == 'push' && github.ref == 'refs/heads/feature/java26-3-full-conversion'
+        if: github.ref == 'refs/heads/feature/java26-3-full-conversion'
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           branch: gh-pages
