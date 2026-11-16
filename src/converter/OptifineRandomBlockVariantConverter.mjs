@@ -331,6 +331,8 @@ const VANILLA_LAYOUTS = {
     "yellow_poplar_leaves": ["textures/blocks/yellow_poplar_leaves","textures/blocks/yellow_poplar_leaves_opaque"]
 };
 
+const STATIC_CTM = new Set(["fixed", "repeat", "ctm", "ctm_compact", "horizontal", "vertical", "horizontal+vertical", "vertical+horizontal"]);
+const OVERLAY_CTM = new Set(["overlay_fixed", "overlay_random", "overlay_repeat"]);
 const slotPath = slot => typeof slot === "string" ? slot : slot?.path;
 const own = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
 
@@ -447,11 +449,15 @@ class OptifineRandomBlockVariantConverter extends AbstractConverter {
 
         let path;
         if (t.startsWith("assets/")) path = t;
-        else if (t.startsWith("textures/")) path = "assets/minecraft/" + t;
+        else if (t.startsWith("textures/") || t.startsWith("optifine/") || t.startsWith("mcpatcher/")) path = "assets/minecraft/" + t;
+        else if (t.startsWith("~/")) path = "assets/minecraft/optifine/" + t.slice(2);
+        else if (t.startsWith("/")) return null;
         else path = this.dirname(propertiesPath) + t;
 
         const clean = this.cleanRelative(path);
-        return clean ? clean + ".png" : null;
+        if (!clean?.startsWith("assets/minecraft/")) return null;
+        const png = clean + ".png";
+        return clean.startsWith("assets/minecraft/textures/") ? this.javaTextureToBedrock(png) : png;
     }
 
     javaTextureToBedrock(javaPath) {
@@ -553,18 +559,61 @@ class OptifineRandomBlockVariantConverter extends AbstractConverter {
         return paths.length === 1 ? paths[0] : undefined;
     }
 
-    hasUnsupportedConditions(props) {
-        const lower = Object.fromEntries(Object.entries(props).map(([k, v]) => [k.toLowerCase(), v]));
-        const blockers = [
+    unsupportedCondition(props) {
+        const blockers = new Set([
             "biomes", "heights", "minheight", "maxheight", "name", "nbt",
             "profession", "professions", "baby", "health", "moonphase",
-            "daytime", "weather", "sizes", "size", "linked", "randomloops",
-            "tintindex", "tintblock"
-        ];
-        if (blockers.some(k => lower[k] !== undefined)) return true;
-        if (lower.faces !== undefined && lower.faces.toLowerCase() !== "all") return true;
-        if (lower.symmetry !== undefined && lower.symmetry.toLowerCase() !== "none") return true;
-        return false;
+            "daytime", "weather", "sizes", "size", "tintblock"
+        ]);
+        for (const [key, raw] of Object.entries(props)) {
+            const k = key.toLowerCase(), v = raw.toLowerCase();
+            if (blockers.has(k) || k.startsWith("nbt.") ||
+                (k === "faces" && v !== "all") || (k === "symmetry" && v !== "none") ||
+                (k === "linked" && v !== "false") || (k === "randomloops" && v !== "0") ||
+                (k === "tintindex" && v !== "-1") ||
+                (k === "layer" && !["cutout", "cutout_mipped", "translucent"].includes(v))) {
+                return `${key}=${raw}`;
+            }
+        }
+        return null;
+    }
+
+    async resolveCtmSource(path, token) {
+        const file = this.resolveTileSource(path, token);
+        return file && await this.output.exists(file) ? file : null;
+    }
+
+    // Static compatibility mode: do not pretend a single tile preserves world
+    // repeat or neighbor matching. CTM full uses the isolated tile; compact uses
+    // the unconnected base. Straight strip layouts use their isolated tile.
+    staticTileIndex(method) {
+        return ["horizontal", "vertical", "horizontal+vertical", "vertical+horizontal"].includes(method) ? 3 : 0;
+    }
+
+    async bakeOverlay(base, layer, dest) {
+        const image = await this.readImage(base);
+        const overlay = await this.readImage(layer);
+        const w = image.getWidth(), h = image.getHeight();
+        if (!w || !h || w !== h || overlay.getWidth() !== overlay.getHeight() ||
+            w > 2048 || overlay.getWidth() > 2048) {
+            throw Error("overlay requires square, non-animated textures up to 2048px");
+        }
+        const size = Math.max(w, overlay.getWidth());
+        // Upscale by nearest-neighbor without depending on the image backend's resize modes.
+        const merged = await this.createImage(size, size);
+        const a = image.bitmap.data, z = overlay.bitmap.data, out = merged.bitmap.data;
+        const zw = overlay.getWidth();
+        for (let y = 0; y < size; y++) {
+            for (let x = 0; x < size; x++) {
+                const ai = (Math.floor(y*w/size)*w + Math.floor(x*w/size))*4;
+                const zi = (Math.floor(y*zw/size)*zw + Math.floor(x*zw/size))*4;
+                const o = (y*size+x)*4;
+                const fg = z[zi+3]/255, bg = a[ai+3]/255*(1-fg), alpha = fg+bg;
+                for (let c=0;c<3;c++) out[o+c] = alpha ? Math.round((z[zi+c]*fg+a[ai+c]*bg)/alpha) : 0;
+                out[o+3] = Math.round(alpha*255);
+            }
+        }
+        await this.writeImage(dest, merged);
     }
 
     async loadCatalog() {
@@ -589,28 +638,48 @@ class OptifineRandomBlockVariantConverter extends AbstractConverter {
         }
     }
 
-    async convertRule(path, catalog, claims) {
+    async convertRule(path, catalog, claims, parsed) {
         let props;
         try {
-            props = this.parseProperties((await this.output.read(path)).toString("utf8"));
+            props = parsed ?? this.parseProperties((await this.output.read(path)).toString("utf8").replace(/^\uFEFF/, ""));
         } catch (error) {
             return { converted: false, reason: `read/parse failed: ${error.message}` };
         }
 
-        if ((props.method || "").toLowerCase() !== "random") return { converted: false, ignored: true };
-        if (this.hasUnsupportedConditions(props)) {
-            return { converted: false, reason: "unsupported conditional/random modifier" };
+        const method = (props.method || "ctm").toLowerCase();
+        const overlay = OVERLAY_CTM.has(method);
+        const random = method === "random" || method === "overlay_random";
+        if (!random && !overlay && !STATIC_CTM.has(method)) {
+            return { converted: false, reason: `unsupported method=${method} (requires runtime context)` };
         }
-
-        const tiles = this.expandTiles(props.tiles || "");
+        const condition = this.unsupportedCondition(props);
+        if (condition) return { converted: false, reason: `unsupported CTM condition: ${condition}` };
+        if (overlay && (props.connect || props.connectTiles || props.connectBlocks || props.innerSeams)) {
+            return { converted: false, reason: "overlay connection conditions cannot be baked unconditionally" };
+        }
+        let tiles = this.expandTiles(props.tiles || "");
         if (!tiles?.length || tiles.length > 256) {
             return { converted: false, reason: "invalid/empty tiles list or >256 variants" };
         }
-        if (tiles.some(t => t === "<skip>")) {
-            return { converted: false, reason: "<skip> tile is not representable by terrain variations" };
+        if (method.endsWith("repeat")) {
+            const w=Number(props.width), h=Number(props.height);
+            if (!Number.isSafeInteger(w) || !Number.isSafeInteger(h) || w<1 || h<1 || w*h!==tiles.length) {
+                return { converted:false, reason:"invalid repeat dimensions or tile count" };
+            }
         }
-
-        const weights = this.normalizeWeights(props.weights, tiles.length);
+        if (!random) {
+            if ((method.endsWith("fixed") && tiles.length !== 1) ||
+                (method === "ctm" && tiles.length !== 47) ||
+                (method === "ctm_compact" && tiles.length !== 5)) {
+                return { converted:false, reason:`invalid tile count for ${method}` };
+            }
+            const at = this.staticTileIndex(method);
+            tiles = [tiles[at]];
+        }
+        if (!tiles[0] || tiles.includes("<skip>") || (overlay && tiles.includes("<default>"))) {
+            return { converted: false, reason: "missing tile or unsupported <skip>/<default> overlay control" };
+        }
+        const weights = this.normalizeWeights(random ? props.weights : "", tiles.length);
         if (!weights) return { converted: false, reason: "invalid weights" };
 
         const target = this.terrainKeysForRule(path, props);
@@ -619,8 +688,8 @@ class OptifineRandomBlockVariantConverter extends AbstractConverter {
         }
         const root = this.ruleRoot(path);
         const relative = root ? path.slice(root.length) : path;
-        const stem = relative.replace(/\.properties$/i, "")
-            .split("/").map(s => s.replace(/[^a-zA-Z0-9._-]+/g, "_")).filter(Boolean).join("/");
+        const stem = (root?.includes("/mcpatcher/") ? "~mcpatcher/" : "") + relative.replace(/\.properties$/i, "")
+            .split("/").map(part => encodeURIComponent(part).replace(/%/g, "~").replace(/^\.{1,2}$/, dots => "~" + dots.length)).join("/");
         // Resolve all sources before copying any file; rejected rules leave no PNGs.
         const variants = [];
         for (let i = 0; i < tiles.length; i++) {
@@ -630,8 +699,8 @@ class OptifineRandomBlockVariantConverter extends AbstractConverter {
                 return { converted: false, reason: `weight out of Bedrock range: ${weight}` };
             }
             const token = tiles[i];
-            const source = token === "<default>" ? null : this.resolveTileSource(path, token);
-            if (token !== "<default>" && (!source || !await this.output.exists(source))) {
+            const source = token === "<default>" ? null : await this.resolveCtmSource(path, token);
+            if (token !== "<default>" && !source) {
                 return { converted: false, reason: `missing variant texture ${token}` };
             }
             variants.push({ source, weight, dest: `textures/blocks/optifine_random/${stem}/variant_${i}.png` });
@@ -641,6 +710,8 @@ class OptifineRandomBlockVariantConverter extends AbstractConverter {
         const applied = [], conflicts = [], duplicates = [];
         const pending = new Map();
         const pendingClaims = [];
+        const writes = new Map();
+        const overlayClaims = claims.overlayClaims ??= new Set();
         for (const key of target.keys) {
             const matchedPaths = target.targets?.get(key);
             const layout = this.baseLayout(catalog, key, matchedPaths);
@@ -664,17 +735,55 @@ class OptifineRandomBlockVariantConverter extends AbstractConverter {
                 }
                 if (!base) continue;
                 const signature = JSON.stringify(variants.map(({source, weight}) => [source ?? base, weight]));
-                if (previous) {
+                if (overlay && overlayClaims.has(id)) {
+                    conflicts.push(`${key}[${i}]: previously baked overlay preserved`);
+                    continue;
+                }
+                if (previous && !overlay) {
                     if (signature === previous.signature) duplicates.push(`${key}[${i}]`);
                     else conflicts.push(`${key}[${i}]: already mapped by ${previous.rule}`);
                     continue;
                 }
-                const variations = variants.map(({source, weight, dest}) => ({
-                    path: source ? dest.slice(0, -4) : base, weight
-                }));
                 const original = typeof slot === "object" && slot ? { ...slot } : {};
                 delete original.path;
-                slots[i] = { ...original, variations };
+                delete original.variations;
+                let variations;
+                if (overlay) {
+                    const under = slot?.variations ?? [{path: slotPath(slot) ?? base, weight:1}];
+                    if (under.length * variants.length > 64) {
+                        conflicts.push(`${key}[${i}]: overlay would produce more than 64 variants`);
+                        continue;
+                    }
+                    const staged = new Map();
+                    variations = [];
+                    try {
+                        for (let u=0;u<under.length;u++) for (let n=0;n<variants.length;n++) {
+                            const layer = variants[n], lower = under[u];
+                            const core = lower.path + ".png";
+                            const dest = `${layer.dest.slice(0,-4)}_base_${encodeURIComponent(lower.path).replace(/%/g,"~")}.png`;
+                            const weight = lower.weight * layer.weight;
+                            if (weight < 0.05 || weight > 1000000) throw Error("combined weight out of range");
+                            if (!await this.output.exists(core) || await this.output.exists(lower.path+".tga")) {
+                                throw Error("missing PNG base or TGA base cannot be safely baked: " + core);
+                            }
+                            staged.set(dest, [core, layer.source]);
+                            variations.push({path:dest.slice(0,-4),weight});
+                        }
+                    } catch (error) {
+                        conflicts.push(`${key}[${i}]: ${error.message}`);
+                        continue;
+                    }
+                    for (const [dest,args] of staged) writes.set(dest,args);
+                } else {
+                    variations = variants.map(({source, weight, dest}) => ({
+                        path: source ? dest.slice(0, -4) : base, weight
+                    }));
+                }
+                if (!random && variations.length === 1) {
+                    slots[i] = Object.keys(original).length ? {...original,path:variations[0].path} : variations[0].path;
+                } else {
+                    slots[i] = { ...original, variations };
+                }
                 pendingClaims.push([id, { base, signature, rule: path }]);
                 applied.push(`${key}[${i}]`);
                 pending.set(key, Array.isArray(layout) ? slots : slots[0]);
@@ -685,15 +794,33 @@ class OptifineRandomBlockVariantConverter extends AbstractConverter {
         }
         if (!applied.length) return { converted: false, duplicates, conflicts };
 
-        for (const { source, dest } of variants) {
-            if (source) await this.output.copy(source, dest);
+        if (overlay) {
+            const written = [];
+            try {
+                for (const [dest, args] of writes) {
+                    await this.bakeOverlay(...args, dest);
+                    written.push(dest);
+                }
+            } catch (error) {
+                for (const dest of written) this.output.zip?.remove(dest);
+                return {converted:false, reason:`overlay bake failed: ${error.message}`};
+            }
+        } else {
+            for (const { source, dest } of variants) {
+                if (source) await this.output.copy(source, dest);
+                if (source && !await this.output.exists(dest)) throw Error("CTM output texture missing: " + dest);
+            }
         }
         catalog.texture_data ??= {};
         for (const [key, textures] of pending) {
             catalog.texture_data[key] = { ...(catalog.texture_data[key] || {}), textures };
         }
-        for (const [id, claim] of pendingClaims) claims.set(id, claim);
-        return { converted: true, slots: applied, variants: variants.length, duplicates, conflicts };
+        for (const [id, claim] of pendingClaims) {
+            if (overlay) overlayClaims.add(id);
+            else claims.set(id, claim);
+        }
+        const quality = overlay || !["fixed","random"].includes(method) ? "approximate" : "native";
+        return { converted: true, method, quality, slots: applied, variants: variants.length, duplicates, conflicts };
     }
 
     async convert() {
@@ -711,11 +838,24 @@ class OptifineRandomBlockVariantConverter extends AbstractConverter {
 
         let converted = 0, skipped = 0, ignored = 0, duplicateRules = 0;
         const claims = new Map();
+        const rules = [];
         for (const path of propertyFiles) {
-            const result = await this.convertRule(path, catalog, claims);
+            try {
+                const props = this.parseProperties((await this.output.read(path)).toString("utf8").replace(/^\uFEFF/, ""));
+                rules.push({path, props, overlay: String(props.method).toLowerCase().startsWith("overlay"),
+                    priority: Number(props.weight) || 0});
+            } catch (error) {
+                skipped++;
+                this.log.warn(`OptiFine CTM skipped: ${path}: ${error.message}`);
+            }
+        }
+        rules.sort((a,b) => Number(a.overlay)-Number(b.overlay) || b.priority-a.priority ||
+            (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+        for (const {path, props} of rules) {
+            const result = await this.convertRule(path, catalog, claims, props);
             if (result.converted) {
                 converted++;
-                this.log.log(`OptiFine random variants: ${path} -> ${result.slots.join(", ")} (${result.variants} variants)`);
+                this.log.log(`OptiFine random variants: ${path} -> ${result.slots.join(", ")} (${result.method}, ${result.quality}, ${result.variants} tiles)`);
             } else if (result.ignored) {
                 ignored++;
             } else if (result.duplicates?.length && !result.conflicts?.length) {
