@@ -114,6 +114,113 @@ jobs:
               assert not any("optifine_random/ignored" in n for n in names)
           print(json.dumps({"native_variations":"ok","weights":[5,2,1],"hd_variant_size":[32,32]}))
           PY
+      - name: Prepare Java custom block model fixture
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile,ZIP_DEFLATED
+          from PIL import Image
+          from io import BytesIO
+          import json
+          Path("build").mkdir(exist_ok=True)
+          def png(color):
+              im=Image.new("RGBA",(32,32),color)
+              b=BytesIO(); im.save(b,format="PNG"); return b.getvalue()
+          parent={
+            "textures":{"surface":"minecraft:block/j2b_red"},
+            "elements":[{
+              "from":[1,0,2],"to":[15,12,14],
+              "faces":{
+                "north":{"texture":"#surface","uv":[0,0,16,16],"rotation":90},
+                "south":{"texture":"#surface","uv":[0,0,16,16]},
+                "east":{"texture":"#surface","uv":[0,0,16,16]},
+                "west":{"texture":"#surface","uv":[0,0,16,16]},
+                "up":{"texture":"#surface","uv":[0,0,16,16]},
+                "down":{"texture":"#surface","uv":[0,0,16,16]}
+              }
+            }]
+          }
+          child={"parent":"minecraft:block/j2b_parent","textures":{"surface":"minecraft:block/j2b_green"}}
+          blockstate={
+            "variants":{
+              "facing=north":{"model":"minecraft:block/j2b_child"},
+              "facing=east":{"model":"minecraft:block/j2b_child","y":90}
+            }
+          }
+          with ZipFile("build/custom_block_model_fixture.zip","w",ZIP_DEFLATED) as z:
+              z.writestr("pack.mcmeta",json.dumps({"pack":{"description":"Custom block model fixture","min_format":[97,1],"max_format":[97,1]}}))
+              z.writestr("assets/minecraft/models/block/j2b_parent.json",json.dumps(parent))
+              z.writestr("assets/minecraft/models/block/j2b_child.json",json.dumps(child))
+              z.writestr("assets/minecraft/blockstates/j2b_demo.json",json.dumps(blockstate))
+              z.writestr("assets/minecraft/textures/block/j2b_red.png",png((255,0,0,255)))
+              z.writestr("assets/minecraft/textures/block/j2b_green.png",png((0,255,0,255)))
+          PY
+      - name: Convert Java custom block model fixture to mcaddon
+        run: node scripts/convert-26-3.mjs build/custom_block_model_fixture.zip build/custom_block_model_fixture.mcaddon >build/custom-block-model.log 2>&1 || { cat build/custom-block-model.log; exit 1; }
+      - name: Verify custom block geometry and companion Behavior Pack
+        run: |
+          python3 - <<'PY'
+          from zipfile import ZipFile
+          from io import BytesIO
+          from PIL import Image
+          import json
+          with ZipFile("build/custom_block_model_fixture.mcaddon") as z:
+              names=set(z.namelist())
+              assert "J2B_RP/manifest.json" in names
+              assert "J2B_BP/manifest.json" in names
+              rp=json.loads(z.read("J2B_RP/manifest.json"))
+              bp=json.loads(z.read("J2B_BP/manifest.json"))
+              assert rp["header"]["pack_scope"]=="world"
+              assert rp["header"]["min_engine_version"]==[1,21,80]
+              assert bp["header"]["min_engine_version"]==[1,21,80]
+              assert any(d["uuid"]==bp["header"]["uuid"] for d in rp["dependencies"])
+              assert any(d["uuid"]==rp["header"]["uuid"] for d in bp["dependencies"])
+
+              report=json.loads(z.read("J2B_RP/j2b_custom_blocks.json"))
+              mappings=report["mappings"]
+              assert len(mappings)==2,mappings
+              assert {m["java_variant"] for m in mappings}=={"facing=north","facing=east"}
+              assert all(m["java_model"]=="minecraft:block/j2b_child" for m in mappings)
+              assert all(m["java_block"]=="minecraft:j2b_demo" for m in mappings)
+
+              east=next(m for m in mappings if m["java_variant"]=="facing=east")
+              north=next(m for m in mappings if m["java_variant"]=="facing=north")
+              for m in mappings:
+                  geo_path="J2B_RP/"+m["geometry_file"]
+                  bp_path="J2B_BP/"+m["behavior_file"].removeprefix("j2b_companion/")
+                  tex_path="J2B_RP/"+m["texture_file"]
+                  assert geo_path in names,geo_path
+                  assert bp_path in names,bp_path
+                  assert tex_path in names,tex_path
+                  img=Image.open(BytesIO(z.read(tex_path))).convert("RGBA")
+                  assert img.size==(32,32),img.size
+                  assert img.getpixel((0,0))==(0,255,0,255),img.getpixel((0,0))
+                  block=json.loads(z.read(bp_path))["minecraft:block"]
+                  assert block["components"]["minecraft:geometry"]==m["geometry"]
+                  assert block["components"]["minecraft:material_instances"]["*"]["texture"]==m["texture_key"]
+
+              north_geo=json.loads(z.read("J2B_RP/"+north["geometry_file"]))["minecraft:geometry"][0]
+              east_geo=json.loads(z.read("J2B_RP/"+east["geometry_file"]))["minecraft:geometry"][0]
+              assert north_geo["description"]["texture_width"]==32
+              cube=north_geo["bones"][0]["cubes"][0]
+              assert cube["origin"]==[-7,0,-6],cube["origin"]
+              assert cube["size"]==[14,12,12],cube["size"]
+              assert cube["uv"]["north"]["uv"]==[0,0]
+              assert cube["uv"]["north"]["uv_size"]==[32,32]
+              assert cube["uv"]["north"]["uv_rotation"]==90
+              assert "rotation" not in north_geo["bones"][0]
+              assert east_geo["bones"][0]["rotation"]==[0,-90,0],east_geo["bones"][0]
+          print(json.dumps({"custom_blocks":2,"atlas_size":[32,32],"companion_bp":"ok","parent_texture_override":"ok","y_rotation":"ok"}))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: custom-block-model-addon-proof
+          path: |
+            build/custom_block_model_fixture.mcaddon
+            build/custom-block-model.log
+          if-no-files-found: warn
+          retention-days: 7
       - name: Prepare 3x full Java UV scale test pack
         run: |
           python3 - <<'PY'

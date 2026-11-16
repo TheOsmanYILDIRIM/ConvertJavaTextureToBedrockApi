@@ -32,6 +32,7 @@ import { HorseConverter } from "./HorseConverter.mjs";
 import { IconsConverter } from "./IconsConverter.mjs";
 import { MapIconsConverter } from "./MapIconsConverter.mjs";
 import { MetadataConverter } from "./MetadataConverter.mjs";
+import { CustomBlockModelConverter } from "./CustomBlockModelConverter.mjs";
 import { NineSliceConverter } from "./NineSliceConverter.mjs";
 import { OpaqueConverter } from "./OpaqueConverter.mjs";
 import { OverlayToTranslateConverter } from "./OverlayToTranslateConverter.mjs";
@@ -63,6 +64,7 @@ import { OptifineRandomBlockVariantConverter } from "./OptifineRandomBlockVarian
 const converters = [
     FixWrongRootFolderConverter,
     MetadataConverter,
+    CustomBlockModelConverter,
     RenameConverter,
     ModernEntityFamilyConverter,
     ModernStructuralFamilyConverter,
