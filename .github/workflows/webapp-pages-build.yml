@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-webapp:
@@ -55,11 +55,18 @@ jobs:
           path: web/build
           if-no-files-found: error
           retention-days: 7
+      - name: Deploy verified web bundle to gh-pages
+        if: github.event_name == 'push' && github.ref == 'refs/heads/feature/java26-3-full-conversion'
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          branch: gh-pages
+          folder: web/build
+          clean: true
       - name: Probe live Pages converter route
         if: always()
         run: |
           set +e
-          for url in             "https://theosmanyildirim.github.io/ConvertJavaTextureToBedrock/"             "https://theosmanyildirim.github.io/ConvertJavaTextureToBedrock/index.html"             "https://theosmanyildirim.github.io/convertjavatexturetobedrock/"             "https://theosmanyildirim.github.io/converter/"; do
+          for url in             "https://theosmanyildirim.github.io/ConvertJavaTextureToBedrockApi/"             "https://theosmanyildirim.github.io/ConvertJavaTextureToBedrockApi/index.html"             "https://theosmanyildirim.github.io/ConvertJavaTextureToBedrock/"; do
             code="$(curl -L -sS -o /tmp/page.html -w '%{http_code}' "$url")"
             echo "$code $url"
             if [ "$code" = "200" ]; then
