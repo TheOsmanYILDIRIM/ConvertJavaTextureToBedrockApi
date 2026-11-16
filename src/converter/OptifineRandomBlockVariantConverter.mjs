@@ -331,7 +331,7 @@ const VANILLA_LAYOUTS = {
     "yellow_poplar_leaves": ["textures/blocks/yellow_poplar_leaves","textures/blocks/yellow_poplar_leaves_opaque"]
 };
 
-const STATIC_CTM = new Set(["fixed", "repeat", "ctm", "ctm_compact", "horizontal", "vertical", "horizontal+vertical", "vertical+horizontal"]);
+const STATIC_CTM = new Set(["top", "fixed", "repeat", "ctm", "ctm_compact", "horizontal", "vertical", "horizontal+vertical", "vertical+horizontal"]);
 const OVERLAY_CTM = new Set(["overlay_fixed", "overlay_random", "overlay_repeat"]);
 const slotPath = slot => typeof slot === "string" ? slot : slot?.path;
 const own = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
@@ -368,7 +368,7 @@ class OptifineRandomBlockVariantConverter extends AbstractConverter {
         }
         if (current) logical.push(current);
 
-        const out = {};
+        const out = Object.create(null);
         for (const raw of logical) {
             const line = raw.trim();
             if (!line || line.startsWith("#") || line.startsWith("!")) continue;
@@ -391,7 +391,7 @@ class OptifineRandomBlockVariantConverter extends AbstractConverter {
                 continue;
             }
             const a = Number(range[1]), b = Number(range[2]);
-            if (b < a || b - a > 255) return null;
+            if (!Number.isSafeInteger(a) || !Number.isSafeInteger(b) || b < a || b - a > 255) return null;
             for (let n = a; n <= b; n++) out.push(String(n));
         }
         return out;
@@ -494,9 +494,16 @@ class OptifineRandomBlockVariantConverter extends AbstractConverter {
     terrainKeysForRule(propertiesPath, props) {
         const matchTiles = this.splitTokens(props.matchTiles);
         const matchBlocks = this.splitTokens(props.matchBlocks);
-        if (matchTiles.length && matchBlocks.length) {
-            return { error: "combined matchTiles+matchBlocks is not safely representable" };
+        const faces = (props.faces ?? "all").toLowerCase();
+        const asBlock = token => token.replace(/^minecraft:/,"");
+        const restrict = matchBlocks.length ? new Set(matchBlocks.flatMap(token =>
+            BEDROCK_1_26_50_4_SAFE_BLOCK_TO_TERRAIN_KEYS[asBlock(token)] || [])) : null;
+        if (matchTiles.length && matchBlocks.some(token => !own(BEDROCK_1_26_50_4_SAFE_BLOCK_TO_TERRAIN_KEYS,asBlock(token)))) {
+            return { error:matchBlocks.some(token=>token.includes("snowy=true")) ?
+                "snowy top/side exception has no equivalent Bedrock slot (snowed side is not a snowy top)" :
+                "combined matchTiles+matchBlocks lacks a lossless block/state mapping" };
         }
+        if (!matchTiles.length && faces !== "all") return {error:"face restriction requires a proven terrain tile"};
 
         if (matchTiles.length) {
             const targets = new Map();
@@ -504,7 +511,11 @@ class OptifineRandomBlockVariantConverter extends AbstractConverter {
                 const path = this.resolveMatchTile(token);
                 const mapped = path ? BEDROCK_1_26_50_4_TERRAIN_PATH_TO_KEYS[path] : null;
                 if (!mapped?.length) return { error: `no Bedrock terrain alias for matchTile ${token}` };
+                if (faces !== "all" && !this.provenFace(path, faces)) {
+                    return {error:`face restriction is not proven for ${token}: ${faces}`};
+                }
                 for (const key of mapped) {
+                    if (restrict && !restrict.has(key)) continue;
                     if (!targets.has(key)) targets.set(key, new Set());
                     targets.get(key).add(path);
                 }
@@ -561,7 +572,7 @@ class OptifineRandomBlockVariantConverter extends AbstractConverter {
         for (const [key, raw] of Object.entries(props)) {
             const k = key.toLowerCase(), v = raw.toLowerCase();
             if (blockers.has(k) || k.startsWith("nbt.") ||
-                (k === "faces" && v !== "all") || (k === "symmetry" && v !== "none") ||
+                (k === "symmetry" && v !== "none") ||
                 (k === "linked" && v !== "false") || (k === "randomloops" && v !== "0") ||
                 (k === "tintindex" && v !== "-1") ||
                 (k === "layer" && !["cutout", "cutout_mipped", "translucent"].includes(v))) {
@@ -609,6 +620,255 @@ class OptifineRandomBlockVariantConverter extends AbstractConverter {
         await this.writeImage(dest, merged);
     }
 
+    provenFace(path, faces) {
+        // Only vanilla aliases whose use is unambiguous; a filename suffix alone is not proof.
+        const table = {
+            "textures/blocks/grass_top":"top",
+            "textures/blocks/barrel_top":"top",
+            "textures/blocks/barrel_top_open":"top",
+            "textures/blocks/barrel_bottom":"bottom",
+            "textures/blocks/barrel_side":"sides"
+        };
+        const side = table[path];
+        return !!side && this.splitTokens(faces).some(f => f === side ||
+            (side === "top" && f === "up") || (side === "bottom" && f === "down"));
+    }
+
+    overlayBudget() { return 256; }
+
+    async compatibleRepeat(tiles) {
+        if (tiles.length < 2) return tiles;
+        const edge = [];
+        for (const tile of tiles) {
+            if (!tile.source) { edge.push(null); continue; }
+            const image = await this.readImage(tile.source);
+            const w=image.getWidth(), h=image.getHeight(), data=image.bitmap.data;
+            if (w !== h || w > 2048 || w < 1) throw Error("repeat tile is not a supported square PNG");
+            const sample = (x,y) => Array.from(data.subarray(4*(y*w+x),4*(y*w+x)+4));
+            const sides=[[],[],[],[]];
+            for (let j=0;j<Math.min(w,64);j++) {
+                const i=Math.round(j*(w-1)/Math.max(1,Math.min(w,64)-1));
+                for (const [k,xy] of [[0,[0,i]],[1,[w-1,i]],[2,[i,0]],[3,[i,w-1]]]) sides[k].push(...sample(...xy));
+            }
+            edge.push({w,sides});
+        }
+        // Both directions and self-tiling are required because Bedrock can choose
+        // identical or different tiles in either order. This is a bounded heuristic.
+        const seam=(a,b)=>{
+            let sum=0;
+            for(let i=0;i<a.length;i+=4) {
+                const aa=a[i+3]/255, ba=b[i+3]/255;
+                const diff=Math.max(Math.abs(a[i+3]-b[i+3]),...[0,1,2].map(c=>Math.abs(a[i+c]*aa-b[i+c]*ba)));
+                if(diff>64) return false;
+                sum+=diff;
+            }
+            return sum/(a.length/4)<=18;
+        };
+        const fits=(a,b)=>!!a && !!b && a.w===b.w &&
+            seam(a.sides[0],b.sides[1]) && seam(a.sides[1],b.sides[0]) &&
+            seam(a.sides[2],b.sides[3]) && seam(a.sides[3],b.sides[2]);
+        const candidates=edge.map((_,i)=>i).filter(i=>fits(edge[i],edge[i]));
+        const links=new Map(candidates.map(i=>[i,new Set(candidates.filter(j=>fits(edge[i],edge[j])))]));
+        candidates.sort((a,b)=>links.get(b).size-links.get(a).size || a-b);
+        let best=[];
+        for(const first of candidates) {
+            const group=[first];
+            for(const next of candidates) if(next!==first && group.every(i=>links.get(i).has(next))) group.push(next);
+            if(group.length>best.length) best=group;
+        }
+        return best.length ? best.sort((a,b)=>a-b).map(i=>tiles[i]) : [tiles.find(t=>t.source) ?? tiles[0]];
+    }
+
+    async imageKey(source) {
+        const image=await this.readImage(source);
+        const bytes=image.bitmap.data;
+        let hash=2166136261;
+        for(const value of bytes) hash=Math.imul(hash^value,16777619);
+        return {bytes,key:`${image.getWidth()}x${image.getHeight()}:${hash>>>0}`};
+    }
+
+    async uniqueTiles(variants) {
+        const winners=[], buckets=new Map();
+        for (const variant of variants) {
+            if (!variant.source) { winners.push({...variant}); continue; }
+            const a=await this.imageKey(variant.source);
+            // Material metadata matters only when requested. Exact compare on hash
+            // collisions keeps the digest from merging unrelated visible textures.
+            const material=this.options?.includeMaterialMaps === false ? "" : await this.materialIdentity(variant.source);
+            const key=a.key+"|"+material;
+            const candidates=buckets.get(key)||[];
+            let merged=false;
+            for(const i of candidates) {
+                const b=await this.imageKey(winners[i].source);
+                if(a.bytes.length===b.bytes.length && a.bytes.every((n,j)=>n===b.bytes[j])) {
+                    winners[i].weight+=variant.weight; merged=true; break;
+                }
+            }
+            if(!merged) {
+                candidates.push(winners.length);
+                buckets.set(key,candidates);
+                winners.push({...variant});
+            }
+        }
+        return winners;
+    }
+
+    materialPath(source,suffix) { return source.replace(/\.png$/i,suffix); }
+
+    async readTextureSet(source) {
+        const path=this.materialPath(source,".texture_set.json");
+        if(!await this.output.exists(path)) return null;
+        const parsed=JSON.parse((await this.output.read(path)).toString("utf8"));
+        const set=parsed["minecraft:texture_set"];
+        if(!set || typeof set!=="object") throw Error("invalid texture set: "+path);
+        return {path,parsed,set};
+    }
+
+    async materialIdentity(source) {
+        // Conservatively keep separate material sets; Java shader maps are not
+        // automatically equivalent to Bedrock MER or tangent-space conventions.
+        for(const suffix of [".texture_set.json","_n.png","_s.png","_normal.png","_specular.png","_mer.png","_heightmap.png"]) {
+            if(await this.output.exists(this.materialPath(source,suffix))) return source;
+        }
+        return "";
+    }
+
+    async copyCtmMaterial(source,dest) {
+        if(this.options?.includeMaterialMaps===false) return;
+        try {
+            const entry=await this.readTextureSet(source);
+            if(!entry) {
+                if(await this.materialIdentity(source)) this.log.warn("OptiFine CTM: Java shader maps are not Bedrock texture sets: "+source);
+                return;
+            }
+            const {parsed,set}=entry;
+            const oldBase=source.split("/").pop().slice(0,-4);
+            if(set.color!==oldBase && set.color!==oldBase+".png") throw Error("texture set uses nonlocal or different color");
+            const newBase=dest.split("/").pop().slice(0,-4);
+            const copies=[];
+            for(const [k,value] of Object.entries(set)) {
+                if(k==="color" || typeof value!=="string") continue;
+                if(!/^[a-zA-Z0-9_.-]+$/.test(value) || value==="." || value==="..") throw Error("nonlocal material path");
+                const file=this.dirname(source)+value.replace(/\.png$/i,"")+".png";
+                const destMap=this.materialPath(dest,"_"+k+".png");
+                if(!await this.output.exists(file)) throw Error("missing material "+file);
+                copies.push([file,destMap]);
+                set[k]=newBase+"_"+k;
+            }
+            set.color=newBase;
+            for(const [from,to] of copies) await this.output.copy(from,to);
+            await this.writeJson(this.materialPath(dest,".texture_set.json"),parsed);
+        } catch(error) {
+            this.log.warn("OptiFine CTM: material conversion skipped: "+source+": "+error.message);
+        }
+    }
+
+    async stripMaterialMaps() {
+        const files=this.output?.zip?.files;
+        if(!files) { this.log.warn("Material opt-out: backend cannot enumerate resources"); return; }
+        const paths=Object.keys(files).filter(p=>!files[p].dir && p.startsWith("textures/"));
+        const existing=new Set(paths), remove=new Set(), colors=new Set();
+        const materialFields=/^(normal|heightmap|metalness_emissive_roughness(_subsurface)?|metalness|emissive|roughness|specular)$/;
+        for(const path of paths.filter(p=>p.endsWith(".texture_set.json"))) {
+            try {
+                const entry=await this.readTextureSet(path.replace(/\.texture_set\.json$/,".png"));
+                const {parsed,set}=entry;
+                const local=value=>typeof value==="string" && /^[a-zA-Z0-9_.-]+$/.test(value) && value!=="." && value!==".." ?
+                    this.dirname(path)+value.replace(/\.png$/i,"")+".png" : null;
+                if(local(set.color)) colors.add(local(set.color));
+                let changed=false;
+                for(const [key,value] of Object.entries(set)) if(materialFields.test(key)) {
+                    if(local(value)) remove.add(local(value));
+                    delete set[key];
+                    changed=true;
+                }
+                if(changed) {
+                    const base=path.replace(/\.texture_set\.json$/,".png");
+                    if(local(set.color)===base && existing.has(base)) await this.output.delete(path);
+                    else await this.writeJson(path,parsed);
+                }
+            } catch(error) {
+                this.log.warn("Material opt-out: invalid texture set removed: "+path+": "+error.message);
+                await this.output.delete(path);
+            }
+        }
+        for(const path of paths) {
+            const base=path.replace(/_(n|s|normal|specular|mer|heightmap)\.png$/i,".png");
+            if(base!==path && existing.has(base)) remove.add(path);
+        }
+        for(const path of remove) {
+            const keys=BEDROCK_1_26_50_4_TERRAIN_PATH_TO_KEYS[path.replace(/\.png$/i,"")];
+            if(existing.has(path) && !colors.has(path) && !keys?.length) await this.output.delete(path);
+        }
+    }
+
+    indexChains(rules) {
+        const index=new Map(),paths=new Set();
+        for(const rule of rules) {
+            const method=rule.props.method?.toLowerCase();
+            if(!["fixed","random"].includes(method) || rule.props.matchBlocks ||
+                (rule.props.faces && rule.props.faces!=="all") || this.unsupportedCondition(rule.props)) continue;
+            const targets=this.splitTokens(rule.props.matchTiles);
+            if(!targets.length || targets.some(t=>BEDROCK_1_26_50_4_TERRAIN_PATH_TO_KEYS[this.resolveMatchTile(t)])) continue;
+            const sources=targets.map(t=>this.resolveTileSource(rule.path,t));
+            if(sources.some(p=>!p || !this.ruleRoot(p))) continue;
+            for(const p of sources) {
+                if(!index.has(p)) index.set(p,[]);
+                index.get(p).push(rule);
+            }
+            paths.add(rule.path);
+        }
+        return {index,paths,used:new Set()};
+    }
+
+    async followChains(variants, parent, chains) {
+        if(!chains) return variants;
+        let expanded=0;
+        const walk=async (v,seen,depth)=>{
+            if(!v.source || !chains.index.has(v.source)) return [v];
+            if(depth>=4 || seen.has(v.source)) throw Error("cycle or depth limit at "+v.source);
+            if(++expanded>256) throw Error("chain expansion budget exceeded");
+            for(const rule of chains.index.get(v.source)) {
+                if(rule.path===parent) throw Error("recursive CTM rule: "+parent);
+                const tokens=this.expandTiles(rule.props.tiles||"");
+                const fixed=rule.props.method.toLowerCase()==="fixed";
+                if(!tokens?.length || tokens.length>256 || (fixed && tokens.length!==1)) continue;
+                if(tokens.every(token=>token==="<skip>")) { chains.used.add(rule.path); continue; }
+                if(tokens.includes("<skip>")) {
+                    this.log.warn("OptiFine CTM: weighted <skip> chain cannot be flattened: "+rule.path);
+                    continue;
+                }
+                const weights=this.normalizeWeights(fixed?"":rule.props.weights,tokens.length);
+                const total=weights?.reduce((a,b)=>a+b,0);
+                if(!total || !Number.isFinite(total)) continue;
+                const out=[];
+                for(let i=0;i<tokens.length;i++) {
+                    if(!weights[i]) continue;
+                    const weight=v.weight*weights[i]/total;
+                    if(tokens[i]==="<default>") { out.push({...v,weight}); continue; }
+                    const source=await this.resolveCtmSource(rule.path,tokens[i]);
+                    if(!source) { out.length=0; break; }
+                    const next={source,weight,dest:v.dest.replace(/\.png$/,`_chain_${i}.png`)};
+                    out.push(...await walk(next,new Set([...seen,v.source]),depth+1));
+                    if(out.length>256) throw Error("chain expansion budget exceeded");
+                }
+                if(out.length) { chains.used.add(rule.path); return out; }
+            }
+            return [v];
+        };
+        try {
+            const out=[];
+            for(const v of variants) {
+                out.push(...await walk(v,new Set(),0));
+                if(out.length>256) throw Error("chain output limit exceeded");
+            }
+            return out;
+        } catch(error) {
+            this.log.warn("OptiFine CTM: chain kept at its original tiles: "+parent+": "+error.message);
+            return variants;
+        }
+    }
+
     async loadCatalog() {
         const path = "textures/terrain_texture.json";
         if (!await this.output.exists(path)) {
@@ -647,7 +907,7 @@ class OptifineRandomBlockVariantConverter extends AbstractConverter {
         }
         const condition = this.unsupportedCondition(props);
         if (condition) return { converted: false, reason: `unsupported CTM condition: ${condition}` };
-        if (overlay && (props.connect || props.connectTiles || props.connectBlocks || props.innerSeams)) {
+        if (overlay && (props.connectTiles || props.connectBlocks || props.innerSeams === "true")) {
             return { converted: false, reason: "overlay connection conditions cannot be baked unconditionally" };
         }
         let tiles = this.expandTiles(props.tiles || "");
@@ -660,7 +920,9 @@ class OptifineRandomBlockVariantConverter extends AbstractConverter {
                 return { converted:false, reason:"invalid repeat dimensions or tile count" };
             }
         }
-        if (!random) {
+        const repeat = method.endsWith("repeat");
+        const inputCount = tiles.length;
+        if (!random && !repeat) {
             if ((method.endsWith("fixed") && tiles.length !== 1) ||
                 (method === "ctm" && tiles.length !== 47) ||
                 (method === "ctm_compact" && tiles.length !== 5)) {
@@ -684,7 +946,8 @@ class OptifineRandomBlockVariantConverter extends AbstractConverter {
         const stem = (root?.includes("/mcpatcher/") ? "~mcpatcher/" : "") + relative.replace(/\.properties$/i, "")
             .split("/").map(part => encodeURIComponent(part).replace(/%/g, "~").replace(/^\.{1,2}$/, dots => "~" + dots.length)).join("/");
         // Resolve all sources before copying any file; rejected rules leave no PNGs.
-        const variants = [];
+        let variants = [];
+        const notes = [];
         for (let i = 0; i < tiles.length; i++) {
             const weight = weights[i];
             if (weight <= 0) continue;
@@ -694,17 +957,31 @@ class OptifineRandomBlockVariantConverter extends AbstractConverter {
             const token = tiles[i];
             const source = token === "<default>" ? null : await this.resolveCtmSource(path, token);
             if (token !== "<default>" && !source) {
+                if (repeat) { notes.push(`missing tile ${token}`); continue; }
                 return { converted: false, reason: `missing variant texture ${token}` };
             }
             variants.push({ source, weight, dest: `textures/blocks/optifine_random/${stem}/variant_${i}.png` });
         }
-        if (!variants.length) return { converted: false, reason: "all variants have zero weight" };
+        if (!variants.length) return { converted: false, reason: "no readable, positive-weight CTM tiles" };
+        try {
+            if (repeat) {
+                const all = variants.length;
+                variants = await this.compatibleRepeat(variants);
+                if (variants.length < all) notes.push(`seam filter retained ${variants.length}/${all} repeat cells`);
+            }
+            if (!overlay) variants = await this.followChains(variants, path, claims.chains);
+            const count = variants.length;
+            if (variants.length > 1) variants = await this.uniqueTiles(variants);
+            if (variants.length < count) notes.push(`merged ${count-variants.length} identical tiles`);
+        } catch (error) {
+            return { converted:false, reason:`CTM tile inspection failed: ${error.message}` };
+        }
 
         const applied = [], conflicts = [], duplicates = [];
         const pending = new Map();
         const pendingClaims = [];
         const writes = new Map();
-        const overlayClaims = claims.overlayClaims ??= new Set();
+        const overlayMemo = new Map();
         for (const key of target.keys) {
             const matchedPaths = target.targets?.get(key);
             const layout = this.baseLayout(catalog, key, matchedPaths);
@@ -728,10 +1005,6 @@ class OptifineRandomBlockVariantConverter extends AbstractConverter {
                 }
                 if (!base) continue;
                 const signature = JSON.stringify(variants.map(({source, weight}) => [source ?? base, weight]));
-                if (overlay && overlayClaims.has(id)) {
-                    conflicts.push(`${key}[${i}]: previously baked overlay preserved`);
-                    continue;
-                }
                 if (previous && !overlay) {
                     if (signature === previous.signature) duplicates.push(`${key}[${i}]`);
                     else conflicts.push(`${key}[${i}]: already mapped by ${previous.rule}`);
@@ -743,35 +1016,45 @@ class OptifineRandomBlockVariantConverter extends AbstractConverter {
                 let variations;
                 if (overlay) {
                     const under = slot?.variations ?? [{path: slotPath(slot) ?? base, weight:1}];
-                    if (under.length * variants.length > 64) {
-                        conflicts.push(`${key}[${i}]: overlay would produce more than 64 variants`);
+                    if (under.length * variants.length > this.overlayBudget()) {
+                        conflicts.push(`${key}[${i}]: overlay exceeds the bounded blend budget`);
                         continue;
                     }
-                    const staged = new Map();
                     variations = [];
                     try {
                         for (let u=0;u<under.length;u++) for (let n=0;n<variants.length;n++) {
                             const layer = variants[n], lower = under[u];
                             const core = lower.path + ".png";
-                            const dest = `${layer.dest.slice(0,-4)}_base_${encodeURIComponent(lower.path).replace(/%/g,"~")}.png`;
+                            const dest = `${layer.dest.slice(0,-4)}_base_${writes.size}.png`;
                             const weight = lower.weight * layer.weight;
                             if (weight < 0.05 || weight > 1000000) throw Error("combined weight out of range");
                             if (!await this.output.exists(core) || await this.output.exists(lower.path+".tga")) {
                                 throw Error("missing PNG base or TGA base cannot be safely baked: " + core);
                             }
-                            staged.set(dest, [core, layer.source]);
-                            variations.push({path:dest.slice(0,-4),weight});
+                            const pair = JSON.stringify([core, layer.source]);
+                            let output = overlayMemo.get(pair);
+                            if (!output) {
+                                output = dest;
+                                await this.bakeOverlay(core, layer.source, output);
+                                overlayMemo.set(pair, output);
+                                writes.set(output, [core, layer.source]);
+                            }
+                            variations.push({source:output,dest:output,weight});
                         }
+                        variations = (await this.uniqueTiles(variations)).map(({dest,weight}) => ({path:dest.slice(0,-4),weight}));
+                        if (variations.length > 256) throw Error("overlay exceeds 256 distinct output tiles");
                     } catch (error) {
                         conflicts.push(`${key}[${i}]: ${error.message}`);
                         continue;
                     }
-                    for (const [dest,args] of staged) writes.set(dest,args);
                 } else {
                     variations = variants.map(({source, weight, dest}) => ({
                         path: source ? dest.slice(0, -4) : base, weight
                     }));
                 }
+                const total = variations.reduce((sum,v)=>sum+v.weight,0);
+                const max = variations.reduce((m,v)=>Math.max(m,v.weight),0);
+                if (max > 1000000) for (const v of variations) v.weight = Math.max(0.05,v.weight / total * 1000000);
                 if (!random && variations.length === 1) {
                     slots[i] = Object.keys(original).length ? {...original,path:variations[0].path} : variations[0].path;
                 } else {
@@ -785,23 +1068,24 @@ class OptifineRandomBlockVariantConverter extends AbstractConverter {
         if (!applied.length && !conflicts.length && !duplicates.length) {
             conflicts.push("no matching texture slot in the Bedrock atlas");
         }
-        if (!applied.length) return { converted: false, duplicates, conflicts };
+        if (!applied.length) {
+            for (const output of writes.keys()) await this.output.delete(output);
+            return { converted: false, duplicates, conflicts };
+        }
 
         if (overlay) {
-            const written = [];
-            try {
-                for (const [dest, args] of writes) {
-                    await this.bakeOverlay(...args, dest);
-                    written.push(dest);
-                }
-            } catch (error) {
-                for (const dest of written) this.output.zip?.remove(dest);
-                return {converted:false, reason:`overlay bake failed: ${error.message}`};
+            const used = new Set();
+            for (const layout of pending.values()) for (const slot of Array.isArray(layout) ? layout : [layout]) {
+                if (slot?.variations) for (const v of slot.variations) used.add(v.path+".png");
+                else used.add(slotPath(slot)+".png");
             }
+            for (const output of writes.keys()) if (!used.has(output)) await this.output.delete(output);
         } else {
             for (const { source, dest } of variants) {
-                if (source) await this.output.copy(source, dest);
-                if (source && !await this.output.exists(dest)) throw Error("CTM output texture missing: " + dest);
+                if (!source) continue;
+                await this.output.copy(source, dest);
+                await this.copyCtmMaterial(source, dest);
+                if (!await this.output.exists(dest)) throw Error("CTM output texture missing: " + dest);
             }
         }
         catalog.texture_data ??= {};
@@ -809,14 +1093,19 @@ class OptifineRandomBlockVariantConverter extends AbstractConverter {
             catalog.texture_data[key] = { ...(catalog.texture_data[key] || {}), textures };
         }
         for (const [id, claim] of pendingClaims) {
-            if (overlay) overlayClaims.add(id);
-            else claims.set(id, claim);
+            if (!overlay || !claims.has(id)) claims.set(id, claim);
         }
         const quality = overlay || !["fixed","random"].includes(method) ? "approximate" : "native";
-        return { converted: true, method, quality, slots: applied, variants: variants.length, duplicates, conflicts };
+        const distinct = new Set();
+        for (const layout of pending.values()) for (const slot of Array.isArray(layout) ? layout : [layout]) {
+            if (slot?.variations) for (const v of slot.variations) distinct.add(v.path);
+            else if (slotPath(slot)?.startsWith("textures/blocks/optifine_random/")) distinct.add(slotPath(slot));
+        }
+        return { converted:true, method, quality, slots:applied, variants:distinct.size, inputCount, notes, duplicates, conflicts };
     }
 
     async convert() {
+        if (this.options?.includeMaterialMaps === false) await this.stripMaterialMaps();
         if (this.options?.optifineRandomBlockVariants === false) return [];
         if (!this.isTargetProfile()) return [];
         const propertyFiles = this.listPropertyFiles();
@@ -844,12 +1133,15 @@ class OptifineRandomBlockVariantConverter extends AbstractConverter {
         }
         rules.sort((a,b) => Number(a.overlay)-Number(b.overlay) || b.priority-a.priority ||
             (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+        claims.chains = this.indexChains(rules);
         for (const {path, props} of rules) {
+            if (claims.chains.paths.has(path)) continue;
             const result = await this.convertRule(path, catalog, claims, props);
             if (result.converted) {
                 converted++;
                 if (result.quality === "native") native++; else approximate++;
-                this.log.log(`OptiFine CTM: ${path} -> ${result.slots.join(", ")} (${result.method}, ${result.quality}, ${result.variants} tiles)`);
+                this.log.log(`OptiFine CTM: ${path} -> ${result.slots.join(", ")} (${result.method}, ${result.quality}, ${result.inputCount} source tiles -> ${result.variants} distinct textures)`);
+                for (const note of result.notes) this.log.warn(`OptiFine CTM: ${path}: ${note}`);
             } else if (result.duplicates?.length && !result.conflicts?.length) {
                 duplicateRules++;
             } else {
@@ -861,17 +1153,19 @@ class OptifineRandomBlockVariantConverter extends AbstractConverter {
             }
         }
 
+        for(const path of claims.chains.paths) if(!claims.chains.used.has(path)) this.log.warn("OptiFine CTM: unmatched dependent rule: "+path);
         if (converted > 0) {
             // Every vanilla grass_top tint slot references the same base file.
             // Mirror a uniform static fallback at that file, not just in the atlas.
             const grass = catalog.texture_data?.grass_top?.textures;
             const slots = Array.isArray(grass) ? grass : grass ? [grass] : [];
-            const fallback = slotPath(slots[0]);
+            const pick = slot => slotPath(slot) ?? slot?.variations?.find(v => v.path.startsWith("textures/blocks/optifine_random/"))?.path;
+            const fallback = pick(slots[0]);
             const base = "textures/blocks/grass_top";
             if (fallback?.startsWith("textures/blocks/optifine_random/") &&
                 slots.length === VANILLA_LAYOUTS.grass_top.length &&
                 VANILLA_LAYOUTS.grass_top.every(slot => slotPath(slot) === base) &&
-                slots.every(slot => slotPath(slot) === fallback) &&
+                slots.every(slot => pick(slot) === fallback) &&
                 slots.every((_,i) => claims.get(JSON.stringify(["grass_top",i]))?.base === base) &&
                 await this.output.exists(fallback + ".png") &&
                 !await this.output.exists(base + ".tga") &&
