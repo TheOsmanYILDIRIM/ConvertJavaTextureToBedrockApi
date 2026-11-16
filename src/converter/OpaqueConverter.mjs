@@ -16,7 +16,13 @@ class OpaqueConverter extends AbstractConverter {
 
         this.log.log(`Create opaque ${to}`);
 
-        const image = await this.readImage(from);
+        let image;
+        try {
+            image = await this.readImage(from);
+        } catch (error) {
+            this.log.warn(`Opaque variant skipped: ${from} -> ${to} (${error.message})`);
+            return [];
+        }
 
         // Bedrock's opaque leaf variants do not use pure black for transparent
         // holes. Pick a dark shade from the source pack's dominant colour
@@ -75,7 +81,11 @@ class OpaqueConverter extends AbstractConverter {
         const background_image = await this.createImage(image.getWidth(), image.getHeight(), hex);
         background_image.composite(image, 0, 0);
 
-        await this.writeImage(to, background_image);
+        try {
+            await this.writeImage(to, background_image);
+        } catch (error) {
+            this.log.warn(`Opaque variant skipped: ${from} -> ${to} (${error.message})`);
+        }
 
         return [];
     }
