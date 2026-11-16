@@ -2,6 +2,45 @@ import { AbstractConverter } from "@modifiedcommand/convert-base-api";
 import { DeleteConverter } from "./DeleteConverter.mjs";
 import v4 from "uuid/v4.js";
 
+const MAX_FORMAT_PART = 0x7fffffff;
+const isFormatPart = value => Number.isInteger(value) && value >= 0 && value <= MAX_FORMAT_PART;
+const invalidFormat = (field, value) =>
+    new Error(`Invalid pack.mcmeta pack.${field}: ${JSON.stringify(value)}`);
+
+function readFormatBound(value, field, defaultMinor, warn) {
+    const parts = Array.isArray(value) ? value : [value];
+    if (parts.length === 1 && isFormatPart(parts[0])) {
+        return { major: parts[0], minor: defaultMinor };
+    }
+    if (parts.length === 2 && parts.every(isFormatPart)) {
+        return { major: parts[0], minor: parts[1] };
+    }
+
+    // Some packs (e.g. Patrix) encode a major/minor pair as a decimal.
+    // Interpret the parsed decimal's digits as a minor version, never as a range.
+    const decimal = parts.length === 1 && typeof parts[0] === "number"
+        && /^(\d+)\.(\d+)$/.exec(String(parts[0]));
+    if (decimal) {
+        const major = Number(decimal[1]);
+        const minor = Number(decimal[2]);
+        if (isFormatPart(major) && isFormatPart(minor)) {
+            warn(`Nonstandard pack.mcmeta pack.${field} ${JSON.stringify(value)}; interpreting as [${major}, ${minor}]`);
+            return { major, minor };
+        }
+    }
+    throw invalidFormat(field, value);
+}
+
+function readLegacyRange(value) {
+    const bounds = typeof value === "number" ? [value, value]
+        : Array.isArray(value) ? value
+        : value && typeof value === "object" ? [value.min_inclusive, value.max_inclusive] : [];
+    if (bounds.length !== 2 || !bounds.every(isFormatPart) || bounds[0] > bounds[1]) {
+        throw invalidFormat("supported_formats", value);
+    }
+    return bounds;
+}
+
 /**
  * Class MetadataConverter
  */
@@ -38,40 +77,48 @@ class MetadataConverter extends AbstractConverter {
             uuid_module = v4();
         }
 
-        MetadataConverter.mcmeta = JSON.parse((await this.output.read(from)).toString("utf8").trim()); // trim it to supports UF8 files with 'BOOM' at the beginning
+        MetadataConverter.mcmeta = JSON.parse((await this.output.read(from)).toString("utf8").trim()); // trim whitespace and a leading UTF-8 BOM
 
-        const pack = MetadataConverter.mcmeta.pack || {};
-        const parseFormat = value => {
-            if (Array.isArray(value)) {
-                const major = Number(value[0]);
-                const minor = Number(value[1] ?? 0);
-                if (!Number.isFinite(major) || !Number.isFinite(minor)) return null;
-                return { major, minor, numeric: Number(`${major}.${minor}`) };
-            }
-            const numeric = Number(value);
-            if (!Number.isFinite(numeric)) return null;
-            const [majorText, minorText = "0"] = String(numeric).split(".");
-            return {
-                major: Number(majorText),
-                minor: Number(minorText),
-                numeric
-            };
-        };
-
-        const minFormat = parseFormat(pack.min_format);
-        const maxFormat = parseFormat(pack.max_format);
-        const modern = minFormat !== null && maxFormat !== null;
-        if (modern && minFormat.numeric > maxFormat.numeric) throw new Error("Invalid pack.mcmeta format range");
-        if (!Number.isFinite(Number(pack.pack_format)) && modern) pack.pack_format = maxFormat.numeric;
-        if (!Number.isFinite(Number(pack.pack_format))) throw new Error("Missing a resource pack format in pack.mcmeta");
-        if (pack.pack_format < 4 ) {
-            throw new Error("Only supports pack_format 4 (v.13–1.14.4), 5 (v.15–1.16.1), 6 (v1.16.2-.16.5), 7 (v1.17), 8(v1.18), or 9(v1.19)!");
+        const pack = MetadataConverter.mcmeta?.pack;
+        if (!pack || typeof pack !== "object" || Array.isArray(pack)) {
+            throw new Error("Missing or invalid pack object in pack.mcmeta");
         }
 
-        // The browser app currently passes no version options. Detect only the
-        // exact supported Java profile; unknown future pack formats stay legacy.
-        if (modern && minFormat.major === 97 && minFormat.minor === 1
-            && maxFormat.major === 97 && maxFormat.minor === 1) {
+        const has = field => Object.prototype.hasOwnProperty.call(pack, field);
+        const modern = has("min_format") || has("max_format");
+        let minFormat, maxFormat;
+        if (modern) {
+            if (!has("min_format") || !has("max_format")) {
+                throw new Error(`Missing pack.mcmeta pack.${has("min_format") ? "max_format" : "min_format"}`);
+            }
+            const warn = message => this.log.warn?.(message);
+            minFormat = readFormatBound(pack.min_format, "min_format", 0, warn);
+            maxFormat = readFormatBound(pack.max_format, "max_format", MAX_FORMAT_PART, warn);
+            if (minFormat.major > maxFormat.major
+                || (minFormat.major === maxFormat.major && minFormat.minor > maxFormat.minor)) {
+                throw new Error("Invalid pack.mcmeta format range: min_format exceeds max_format");
+            }
+        }
+
+        const legacyRange = has("supported_formats") ? readLegacyRange(pack.supported_formats) : null;
+        if (has("pack_format")) {
+            if (!isFormatPart(pack.pack_format)) throw invalidFormat("pack_format", pack.pack_format);
+        } else if (modern || legacyRange) {
+            // Downstream legacy converters compare integer pack format thresholds.
+            pack.pack_format = modern ? maxFormat.major : legacyRange[1];
+        } else {
+            throw new Error("Missing a resource pack format in pack.mcmeta");
+        }
+
+        const major = modern ? maxFormat.major : pack.pack_format;
+        if (major < 4) {
+            throw new Error(`Unsupported Java resource pack format ${major}; conversion requires format 4 or newer`);
+        }
+
+        // Auto-select Java 26.3 only for packs targeting major 97 that include 97.1.
+        // A range spanning different major versions does not identify one profile.
+        if (modern && minFormat.major === 97 && maxFormat.major === 97
+            && minFormat.minor <= 1 && maxFormat.minor >= 1) {
             if (!this.options.javaVersion) this.options.javaVersion = "26.3";
             if (!this.options.bedrockVersion) this.options.bedrockVersion = "1.26.50.4";
         }
@@ -86,7 +133,7 @@ class MetadataConverter extends AbstractConverter {
                 "version": [0, 0, 1]
             },
             "modules": [{
-                "description": MetadataConverter.mcmeta.pack.description,
+                "description": description,
                 "type": "resources",
                 "uuid": uuid_module,
                 "version": [0, 0, 1]
