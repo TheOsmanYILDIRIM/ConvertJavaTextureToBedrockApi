@@ -55,3 +55,14 @@ jobs:
           path: web/build
           if-no-files-found: error
           retention-days: 7
+      - name: Probe live Pages converter route
+        if: always()
+        run: |
+          set +e
+          for url in             "https://theosmanyildirim.github.io/ConvertJavaTextureToBedrock/"             "https://theosmanyildirim.github.io/ConvertJavaTextureToBedrock/index.html"             "https://theosmanyildirim.github.io/convertjavatexturetobedrock/"             "https://theosmanyildirim.github.io/converter/"; do
+            code="$(curl -L -sS -o /tmp/page.html -w '%{http_code}' "$url")"
+            echo "$code $url"
+            if [ "$code" = "200" ]; then
+              grep -o "Java 26.3 conversions enabled" /tmp/page.html | head -1 || true
+            fi
+          done
