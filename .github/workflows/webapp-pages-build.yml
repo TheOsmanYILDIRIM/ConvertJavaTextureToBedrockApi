@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build-webapp:
@@ -84,21 +84,55 @@ jobs:
           path: web/build
           if-no-files-found: error
           retention-days: 7
-      - name: Deploy verified web bundle to gh-pages
+      - name: Upload verified GitHub Pages artifact
         if: github.ref == 'refs/heads/feature/java26-3-full-conversion'
-        uses: JamesIves/github-pages-deploy-action@v4
+        uses: actions/upload-pages-artifact@v3
         with:
-          branch: gh-pages
-          folder: web/build
-          clean: true
-      - name: Probe live Pages converter route
-        if: always()
+          path: web/build
+
+  deploy:
+    if: github.ref == 'refs/heads/feature/java26-3-full-conversion'
+    needs: build-webapp
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.publish.outputs.page_url }}
+    steps:
+      - name: Check GitHub Pages configuration
+        uses: actions/configure-pages@v5
+
+      - name: Publish verified artifact to GitHub Pages
+        id: publish
+        uses: actions/deploy-pages@v4
+
+      - name: Verify deployed revision and converter worker
+        env:
+          PAGES_URL: ${{ steps.publish.outputs.page_url }}
         run: |
-          set +e
-          for url in             "https://theosmanyildirim.github.io/ConvertJavaTextureToBedrockApi/"             "https://theosmanyildirim.github.io/ConvertJavaTextureToBedrockApi/index.html"             "https://theosmanyildirim.github.io/ConvertJavaTextureToBedrock/"; do
-            code="$(curl -L -sS -o /tmp/page.html -w '%{http_code}' "$url")"
-            echo "$code $url"
-            if [ "$code" = "200" ]; then
-              grep -o "Java 26.3 conversions enabled" /tmp/page.html | head -1 || true
+          set -euo pipefail
+          url="${PAGES_URL%/}/"
+          expected="+api.${GITHUB_SHA:0:8}"
+          for attempt in {1..18}; do
+            if curl -fsSL --max-time 15 -o /tmp/pages.html "${url}?revision=${GITHUB_SHA}&attempt=${attempt}" &&
+               grep -Fq -- "$expected" /tmp/pages.html; then
+              while IFS= read -r script; do
+                if ! curl -fsSL --max-time 15 -o /tmp/pages-main.js "${url}${script}"; then continue; fi
+                while IFS= read -r worker; do
+                  if curl -fsSL --max-time 30 -o /tmp/pages-worker.js "${url}${worker}" &&
+                     grep -Fq "Nonstandard pack.mcmeta" /tmp/pages-worker.js; then
+                    echo "Live Pages verified: ${url} (${expected})"
+                    exit 0
+                  fi
+                done < <(grep -oE 'worker\.[a-f0-9]+\.js' /tmp/pages-main.js | sort -u)
+              done < <(grep -oE 'index\.[a-f0-9]+\.js' /tmp/pages.html | sort -u)
             fi
+            echo "Attempt ${attempt}: expected revision or converter worker not live yet"
+            sleep 5
           done
+          echo "::error::GitHub Pages did not serve the expected revision and worker: ${expected} at ${url}"
+          exit 1
