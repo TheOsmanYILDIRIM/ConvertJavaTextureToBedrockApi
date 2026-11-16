@@ -57,7 +57,7 @@ jobs:
           assert len(images)>3500, len(images)
           Path("build").mkdir(exist_ok=True)
           with ZipFile("build/java_26_3_vanilla.zip","w",ZIP_DEFLATED,compresslevel=4) as z:
-              z.writestr("pack.mcmeta",json.dumps({"pack":{"description":"Java 26.3 vanilla conversion test","min_format":[97,1],"max_format":[97,1]}}))
+              z.writestr("pack.mcmeta",json.dumps({"pack":{"description":"Java 26.3 vanilla conversion test","min_format":97.1,"max_format":97.1}}))
               for f in images:z.write(f,str(Path("assets/minecraft/textures")/f.relative_to(origin)))
           print("Java source PNGs",len(images))
           PY

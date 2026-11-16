@@ -40,21 +40,38 @@ class MetadataConverter extends AbstractConverter {
 
         MetadataConverter.mcmeta = JSON.parse((await this.output.read(from)).toString("utf8").trim()); // trim it to supports UF8 files with 'BOOM' at the beginning
 
-        const pack = MetadataConverter.mcmeta.pack;
-        const min = Array.isArray(pack.min_format) ? Number(pack.min_format[0]) : Number(pack.min_format);
-        const max = Array.isArray(pack.max_format) ? Number(pack.max_format[0]) : Number(pack.max_format);
-        const modern = Number.isFinite(min) && Number.isFinite(max);
-        if (modern && min > max) throw new Error("Invalid pack.mcmeta format range");
-        if (!Number.isInteger(pack.pack_format) && modern) pack.pack_format = max;
-        if (!Number.isInteger(pack.pack_format)) throw new Error("Missing a resource pack format in pack.mcmeta");
+        const pack = MetadataConverter.mcmeta.pack || {};
+        const parseFormat = value => {
+            if (Array.isArray(value)) {
+                const major = Number(value[0]);
+                const minor = Number(value[1] ?? 0);
+                if (!Number.isFinite(major) || !Number.isFinite(minor)) return null;
+                return { major, minor, numeric: Number(`${major}.${minor}`) };
+            }
+            const numeric = Number(value);
+            if (!Number.isFinite(numeric)) return null;
+            const [majorText, minorText = "0"] = String(numeric).split(".");
+            return {
+                major: Number(majorText),
+                minor: Number(minorText),
+                numeric
+            };
+        };
+
+        const minFormat = parseFormat(pack.min_format);
+        const maxFormat = parseFormat(pack.max_format);
+        const modern = minFormat !== null && maxFormat !== null;
+        if (modern && minFormat.numeric > maxFormat.numeric) throw new Error("Invalid pack.mcmeta format range");
+        if (!Number.isFinite(Number(pack.pack_format)) && modern) pack.pack_format = maxFormat.numeric;
+        if (!Number.isFinite(Number(pack.pack_format))) throw new Error("Missing a resource pack format in pack.mcmeta");
         if (pack.pack_format < 4 ) {
             throw new Error("Only supports pack_format 4 (v.13–1.14.4), 5 (v.15–1.16.1), 6 (v1.16.2-.16.5), 7 (v1.17), 8(v1.18), or 9(v1.19)!");
         }
 
         // The browser app currently passes no version options. Detect only the
         // exact supported Java profile; unknown future pack formats stay legacy.
-        if (modern && Number(pack.min_format?.[0]) === 97 && Number(pack.min_format?.[1]) === 1
-            && Number(pack.max_format?.[0]) === 97 && Number(pack.max_format?.[1]) === 1) {
+        if (modern && minFormat.major === 97 && minFormat.minor === 1
+            && maxFormat.major === 97 && maxFormat.minor === 1) {
             if (!this.options.javaVersion) this.options.javaVersion = "26.3";
             if (!this.options.bedrockVersion) this.options.bedrockVersion = "1.26.50.4";
         }
