@@ -1,0 +1,50 @@
+name: Build fork webapp Pages bundle
+
+on:
+  push:
+    branches:
+      - feature/java26-3-full-conversion
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-webapp:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout fork web app
+        uses: actions/checkout@v4
+        with:
+          repository: TheOsmanYILDIRIM/ConvertJavaTextureToBedrock
+          ref: main
+          path: web
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        working-directory: web
+        run: yarn install --ignore-engines
+
+      - name: Build
+        working-directory: web
+        env:
+          NODE_OPTIONS: --openssl-legacy-provider
+        run: yarn build
+
+      - name: Verify fork markers
+        run: |
+          test -f web/build/index.html
+          grep -R "Java 26.3 conversions enabled" web/build/index.html
+          test "$(find web/build -maxdepth 1 -name 'worker.*.js' | wc -l)" -ge 1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fork-pages-build
+          path: web/build
+          if-no-files-found: error
+          retention-days: 7
