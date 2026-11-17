@@ -78,3 +78,7 @@ This project uses the follow main features or external libraries:
 
 ## Report issue
 * Use [GitHub issues](https://github.com/ModifiedCommand/ConvertJavaTextureToBedrock/issues/new/choose)
+
+## Experimental oak worldgen probe
+
+Custom block conversion is opt-in (`customBlockModels: true`). The oak probe only builds a single-model canopy override. It is not a general vanilla block override and no runtime placement is performed. Do not ship it to existing worlds without Bedrock engine validation and a complete removal path. Run `node --test test/companion/oak-worldgen.test.mjs`.
