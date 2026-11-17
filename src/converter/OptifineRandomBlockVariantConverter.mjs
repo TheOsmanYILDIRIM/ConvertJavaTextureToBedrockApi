@@ -1214,43 +1214,71 @@ class OptifineRandomBlockVariantConverter extends AbstractConverter {
         }
     }
 
-    async stripMaterialMaps() {
-        const files=this.output?.zip?.files;
-        if(!files) { this.log.warn("Material opt-out: backend cannot enumerate resources"); return; }
-        const paths=Object.keys(files).filter(p=>!files[p].dir && p.startsWith("textures/"));
-        const existing=new Set(paths), remove=new Set(), colors=new Set();
-        const materialFields=/^(normal|heightmap|metalness_emissive_roughness(_subsurface)?|metalness|emissive|roughness|specular)$/;
-        for(const path of paths.filter(p=>p.endsWith(".texture_set.json"))) {
+    async cleanMaterialMaps() {
+        const optOut = this.options?.includeMaterialMaps === false;
+        const files = this.output?.zip?.files;
+        if (!files) {
+            if (optOut) this.log.warn("Material opt-out: backend cannot enumerate resources");
+            return;
+        }
+        const paths = Object.keys(files).filter(p => !files[p].dir && p.startsWith("textures/"));
+        const existing = new Set(paths), remove = new Set(), colors = new Set(), bound = new Set();
+        const materialFields = /^(normal|heightmap|metalness_emissive_roughness(_subsurface)?|metalness|emissive|roughness|specular)$/;
+        const sidecar = /_(n|s|normal|specular|mer|heightmap)\.png$/i;
+        const local = (path, value) =>
+            typeof value === "string" && /^[a-zA-Z0-9_.-]+$/.test(value) && value !== "." && value !== ".." ?
+                this.dirname(path) + value.replace(/\.png$/i, "") + ".png" : null;
+        for (const path of paths.filter(p => p.endsWith(".texture_set.json"))) {
             try {
-                const entry=await this.readTextureSet(path.replace(/\.texture_set\.json$/,".png"));
-                const {parsed,set}=entry;
-                const local=value=>typeof value==="string" && /^[a-zA-Z0-9_.-]+$/.test(value) && value!=="." && value!==".." ?
-                    this.dirname(path)+value.replace(/\.png$/i,"")+".png" : null;
-                if(local(set.color)) colors.add(local(set.color));
-                let changed=false;
-                for(const [key,value] of Object.entries(set)) if(materialFields.test(key)) {
-                    if(local(value)) remove.add(local(value));
+                const {parsed, set} = await this.readTextureSet(path.replace(/\.texture_set\.json$/, ".png"));
+                const color = local(path, set.color);
+                if (color) colors.add(color);
+                let changed = false;
+                for (const [key, value] of Object.entries(set)) if (materialFields.test(key)) {
+                    const map = local(path, value);
+                    if (!optOut) {
+                        if (map) bound.add(map);
+                        continue;
+                    }
+                    if (map) remove.add(map);
                     delete set[key];
-                    changed=true;
+                    changed = true;
                 }
-                if(changed) {
-                    const base=path.replace(/\.texture_set\.json$/,".png");
-                    if(local(set.color)===base && existing.has(base)) await this.output.delete(path);
-                    else await this.writeJson(path,parsed);
+                if (changed) {
+                    const base = path.replace(/\.texture_set\.json$/, ".png");
+                    if (color === base && existing.has(base)) await this.output.delete(path);
+                    else await this.writeJson(path, parsed);
                 }
-            } catch(error) {
-                this.log.warn("Material opt-out: invalid texture set removed: "+path+": "+error.message);
-                await this.output.delete(path);
+            } catch (error) {
+                if (optOut) {
+                    this.log.warn("Material opt-out: invalid texture set removed: " + path + ": " + error.message);
+                    await this.output.delete(path);
+                }
             }
         }
-        for(const path of paths) {
-            const base=path.replace(/_(n|s|normal|specular|mer|heightmap)\.png$/i,".png");
-            if(base!==path && existing.has(base)) remove.add(path);
+        // Java sidecars keep their original basename when only the color is
+        // renamed; alpha-bearing colors may also have been converted to TGA.
+        for (const path of paths) {
+            const base = path.replace(sidecar, ".png");
+            if (base === path) continue;
+            const java = base.replace(/^textures\/blocks\//, "textures/block/")
+                .replace(/^textures\/items\//, "textures/item/");
+            const target = this.javaTextureToBedrock("assets/minecraft/" + java);
+            const hasColor = candidate => existing.has(candidate) ||
+                existing.has(candidate.replace(/\.png$/i, ".tga"));
+            if (hasColor(base) || hasColor(target) ||
+                (target !== base && !existing.has(base))) remove.add(path);
         }
-        for(const path of remove) {
-            const keys=BEDROCK_1_26_50_4_TERRAIN_PATH_TO_KEYS[path.replace(/\.png$/i,"")];
-            if(existing.has(path) && !colors.has(path) && !keys?.length) await this.output.delete(path);
+        let removed = 0;
+        for (const path of remove) {
+            const keys = BEDROCK_1_26_50_4_TERRAIN_PATH_TO_KEYS[path.replace(/\.png$/i, "")];
+            if (existing.has(path) && !colors.has(path) && !keys?.length && (optOut || !bound.has(path))) {
+                await this.output.delete(path);
+                removed++;
+            }
         }
+        if (removed) this.log.log("Material cleanup: removed " + removed +
+            (optOut ? " disabled material maps" : " unbound material maps"));
     }
 
     indexChains(rules) {
@@ -1611,7 +1639,7 @@ class OptifineRandomBlockVariantConverter extends AbstractConverter {
     }
 
     async convert() {
-        if (this.options?.includeMaterialMaps === false) await this.stripMaterialMaps();
+        await this.cleanMaterialMaps();
         if (this.options?.optifineRandomBlockVariants === false) return [];
         if (!this.isTargetProfile()) return [];
         const propertyFiles = this.listPropertyFiles();
