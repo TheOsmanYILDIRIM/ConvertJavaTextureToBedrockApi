@@ -71,21 +71,30 @@ def run(root, mode, seed):
 
 def main():
     root = Path(sys.argv[1]).resolve()
-    for seed in (12345, 314159):
+    eligible = 0
+    for seed in (314159, 1, 42, 8675309, 12345):
         off = run(root, "control", seed)
+        print(json.dumps({"seed": seed, "control": off}), flush=True)
+        if off["loaded"] != 112**2 or off["missing"]:
+            raise SystemExit("Inconclusive: control scan had unavailable columns")
+        if off["converted"]:
+            raise SystemExit("FAIL: control unexpectedly contains custom blocks")
+        if off["vanilla"] == 0:
+            print(f"Skipping seed {seed}: no vanilla oak leaves in scanned area", flush=True)
+            continue
+        eligible += 1
         on = run(root, "candidate", seed)
         print(json.dumps({"seed": seed, "control": off, "candidate": on}), flush=True)
-        if any(r["loaded"] != 112**2 or r["missing"] for r in (off, on)):
-            raise SystemExit("Inconclusive: scan had unavailable columns")
-        if off["converted"] or off["vanilla"] == 0:
-            raise SystemExit("Inconclusive: control must contain vanilla oak and no custom oak")
-        if not on["converted"]:
-            continue
+        if on["loaded"] != 112**2 or on["missing"]:
+            raise SystemExit("Inconclusive: candidate scan had unavailable columns")
         if off["hash"] != on["hash"] or off["vanilla"] != on["vanilla"] + on["converted"]:
-            raise SystemExit("FAIL: custom leaves changed canopy positions or duplicated generation")
-        print("PASS: same-seed canopy coordinates match, with direct custom block placements")
-        return
-    raise SystemExit("FAIL: no direct custom oak placements observed")
+            raise SystemExit("FAIL: candidate changed canopy coordinates or total leaf count")
+        if on["converted"]:
+            print("PASS: same-seed canopy coordinates match, with direct custom block placements")
+            return
+    if not eligible:
+        raise SystemExit("Inconclusive: none of the control regions contained vanilla oak")
+    raise SystemExit("FAIL: no direct custom oak placements in eligible regions")
 
 
 if __name__ == "__main__":
