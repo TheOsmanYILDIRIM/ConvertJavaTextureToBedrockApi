@@ -34,11 +34,11 @@ make(pack,'blocks/oak_leaves.json',{
  }}
 });
 make(pack,'scripts/main.js',`import {system, world} from '@minecraft/server';
-const dim=world.getDimension('overworld');
 const custom='${id}';
 system.afterEvents.scriptEventReceive.subscribe(event=>{
  if(event.id!=='j2b_ci:scan') return;
  system.runJob((function*(){
+  const dim=world.getDimension('overworld');
   let vanilla=0, converted=0, hash=2166136261, loaded=0, missing=0;
   for(let z=-56;z<56;z++) for(let x=-56;x<56;x++){
    try{
