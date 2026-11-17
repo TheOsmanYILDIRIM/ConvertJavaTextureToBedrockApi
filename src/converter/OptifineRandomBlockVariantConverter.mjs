@@ -1087,49 +1087,6 @@ class OptifineRandomBlockVariantConverter extends AbstractConverter {
 
     overlayBudget() { return 256; }
 
-    async compatibleRepeat(tiles) {
-        if (tiles.length < 2) return tiles;
-        const edge = [];
-        for (const tile of tiles) {
-            if (!tile.source) { edge.push(null); continue; }
-            const image = await this.readImage(tile.source);
-            const w=image.getWidth(), h=image.getHeight(), data=image.bitmap.data;
-            if (w !== h || w > 2048 || w < 1) throw Error("repeat tile is not a supported square PNG");
-            const sample = (x,y) => Array.from(data.subarray(4*(y*w+x),4*(y*w+x)+4));
-            const sides=[[],[],[],[]];
-            for (let j=0;j<Math.min(w,64);j++) {
-                const i=Math.round(j*(w-1)/Math.max(1,Math.min(w,64)-1));
-                for (const [k,xy] of [[0,[0,i]],[1,[w-1,i]],[2,[i,0]],[3,[i,w-1]]]) sides[k].push(...sample(...xy));
-            }
-            edge.push({w,sides});
-        }
-        // Both directions and self-tiling are required because Bedrock can choose
-        // identical or different tiles in either order. This is a bounded heuristic.
-        const seam=(a,b)=>{
-            let sum=0;
-            for(let i=0;i<a.length;i+=4) {
-                const aa=a[i+3]/255, ba=b[i+3]/255;
-                const diff=Math.max(Math.abs(a[i+3]-b[i+3]),...[0,1,2].map(c=>Math.abs(a[i+c]*aa-b[i+c]*ba)));
-                if(diff>64) return false;
-                sum+=diff;
-            }
-            return sum/(a.length/4)<=18;
-        };
-        const fits=(a,b)=>!!a && !!b && a.w===b.w &&
-            seam(a.sides[0],b.sides[1]) && seam(a.sides[1],b.sides[0]) &&
-            seam(a.sides[2],b.sides[3]) && seam(a.sides[3],b.sides[2]);
-        const candidates=edge.map((_,i)=>i).filter(i=>fits(edge[i],edge[i]));
-        const links=new Map(candidates.map(i=>[i,new Set(candidates.filter(j=>fits(edge[i],edge[j])))]));
-        candidates.sort((a,b)=>links.get(b).size-links.get(a).size || a-b);
-        let best=[];
-        for(const first of candidates) {
-            const group=[first];
-            for(const next of candidates) if(next!==first && group.every(i=>links.get(i).has(next))) group.push(next);
-            if(group.length>best.length) best=group;
-        }
-        return best.length ? best.sort((a,b)=>a-b).map(i=>tiles[i]) : [tiles.find(t=>t.source) ?? tiles[0]];
-    }
-
     async imageKey(source) {
         const image=await this.readImage(source);
         const bytes=image.bitmap.data;
@@ -1490,15 +1447,6 @@ class OptifineRandomBlockVariantConverter extends AbstractConverter {
         }
         if (!variants.length) return { converted: false, reason: "no readable, positive-weight CTM tiles" };
         try {
-            if (repeat) {
-                try {
-                    const compatible = await this.compatibleRepeat(variants);
-                    if (compatible.length < variants.length) notes.push(
-                        `seam risk: only ${compatible.length}/${variants.length} cells passed the edge check; keeping all readable tiles as unordered variants`);
-                } catch (error) {
-                    notes.push(`seam check unavailable; keeping readable tiles: ${error.message}`);
-                }
-            }
             if (!overlay) variants = await this.followChains(variants, path, claims.chains);
             const count = variants.length;
             if (variants.length > 1) variants = await this.uniqueTiles(variants);
