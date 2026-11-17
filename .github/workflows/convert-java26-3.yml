@@ -90,6 +90,8 @@ jobs:
               for n in range(1,37):
                   im=Image.new("RGBA",(32,32),(1,180,20,255))
                   im.putpixel((16,16),(n,180,20,255))
+                  if n>1:
+                      for y in range(32): im.putpixel((0,y),(255,0,255,255))
                   b=BytesIO(); im.save(b,format="PNG")
                   z.writestr(p+f"patrix/grass/{n}.png",b.getvalue())
               z.writestr(p+"patrix/grass/snow.properties","method=repeat\nweight=900\nwidth=1\nheight=1\nmatchTiles=grass_block_top\nmatchBlocks=minecraft:grass_block:snowy=true\ntiles=optifine/ctm/patrix/grass/snow.png\n")
@@ -155,6 +157,8 @@ jobs:
               assert pixel(variants[0]["path"]+".png")==pixel("textures/blocks/grass_top.png")== (1,180,20,255)
               for i,v in enumerate(variants,1):
                   assert Image.open(BytesIO(z.read(v["path"]+".png"))).convert("RGBA").getpixel((16,16))==(i,180,20,255)
+              grass_block=json.loads(z.read("blocks.json"))["grass"]
+              assert grass_block["textures"]["up"]=="grass_top" and grass_block["isotropic"]=={"up":False,"down":True},grass_block
               assert not any("/grass/snow/" in n for n in names)
               stone=data["stone"]["textures"]
               assert len(stone)==7 and stone[1]=="textures/blocks/stone_granite",stone

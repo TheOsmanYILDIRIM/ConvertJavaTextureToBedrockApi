@@ -331,6 +331,457 @@ const VANILLA_LAYOUTS = {
     "yellow_poplar_leaves": ["textures/blocks/yellow_poplar_leaves","textures/blocks/yellow_poplar_leaves_opaque"]
 };
 
+// Rotation-enabled RP entries from the pinned Bedrock 1.26.50.4 reference blocks.json.
+// Keep the complete entry when adding an override so textures, tint-related settings,
+// carried aliases and sounds are not replaced with guessed defaults.
+const VANILLA_ROTATING_BLOCKS = {
+  "acacia_leaves": {
+    "ambient_occlusion_exponent": 0.8,
+    "carried_textures": "acacia_leaves_carried",
+    "isotropic": {
+      "down": true,
+      "up": true
+    },
+    "sound": "grass",
+    "textures": "acacia_leaves"
+  },
+  "azalea_leaves": {
+    "ambient_occlusion_exponent": 0.8,
+    "isotropic": {
+      "down": true,
+      "up": true
+    },
+    "sound": "azalea_leaves",
+    "textures": "azalea_leaves"
+  },
+  "azalea_leaves_flowered": {
+    "ambient_occlusion_exponent": 0.8,
+    "isotropic": {
+      "down": true,
+      "up": true
+    },
+    "sound": "azalea_leaves",
+    "textures": "azalea_leaves_flowered"
+  },
+  "birch_leaves": {
+    "ambient_occlusion_exponent": 0.8,
+    "carried_textures": "birch_leaves_carried",
+    "isotropic": {
+      "down": true,
+      "up": true
+    },
+    "sound": "grass",
+    "textures": "birch_leaves"
+  },
+  "camera": {
+    "isotropic": true,
+    "textures": {
+      "down": "camera_top",
+      "east": "camera_side",
+      "north": "camera_back",
+      "south": "camera_front",
+      "up": "camera_top",
+      "west": "camera_side"
+    }
+  },
+  "chiseled_red_sandstone": {
+    "ambient_occlusion_exponent": 1,
+    "isotropic": {
+      "down": true,
+      "up": true
+    },
+    "sound": "stone",
+    "textures": {
+      "down": "flattened_redsandstone_top",
+      "side": "chiseled_red_sandstone",
+      "up": "flattened_redsandstone_top"
+    }
+  },
+  "chiseled_sandstone": {
+    "ambient_occlusion_exponent": 1,
+    "isotropic": {
+      "down": true,
+      "up": true
+    },
+    "sound": "stone",
+    "textures": {
+      "down": "flattened_sandstone_top",
+      "side": "chiseled_sandstone",
+      "up": "flattened_sandstone_top"
+    }
+  },
+  "clay": {
+    "isotropic": true,
+    "sound": "gravel",
+    "textures": "clay"
+  },
+  "coarse_dirt": {
+    "isotropic": true,
+    "sound": "gravel",
+    "textures": "coarse_dirt"
+  },
+  "crimson_nylium": {
+    "isotropic": {
+      "down": true,
+      "up": true
+    },
+    "sound": "nylium",
+    "textures": {
+      "down": "netherrack",
+      "east": "crimson_nylium_side",
+      "north": "crimson_nylium_side",
+      "south": "crimson_nylium_side",
+      "up": "crimson_nylium_top",
+      "west": "crimson_nylium_side"
+    }
+  },
+  "crying_obsidian": {
+    "ambient_occlusion_exponent": 2,
+    "isotropic": true,
+    "sound": "stone",
+    "textures": "crying_obsidian"
+  },
+  "cut_red_sandstone": {
+    "ambient_occlusion_exponent": 1,
+    "isotropic": {
+      "down": true,
+      "up": true
+    },
+    "sound": "stone",
+    "textures": {
+      "down": "flattened_redsandstone_top",
+      "side": "cut_red_sandstone",
+      "up": "flattened_redsandstone_top"
+    }
+  },
+  "cut_sandstone": {
+    "ambient_occlusion_exponent": 1,
+    "isotropic": {
+      "down": true,
+      "up": true
+    },
+    "sound": "stone",
+    "textures": {
+      "down": "flattened_sandstone_top",
+      "side": "cut_sandstone",
+      "up": "flattened_sandstone_top"
+    }
+  },
+  "dark_oak_leaves": {
+    "ambient_occlusion_exponent": 0.8,
+    "carried_textures": "big_oak_leaves_carried",
+    "isotropic": {
+      "down": true,
+      "up": true
+    },
+    "sound": "grass",
+    "textures": "big_oak_leaves"
+  },
+  "deepslate": {
+    "isotropic": {
+      "down": true,
+      "up": true
+    },
+    "sound": "deepslate",
+    "textures": {
+      "down": "deepslate_top",
+      "side": "deepslate",
+      "up": "deepslate_top"
+    }
+  },
+  "dirt": {
+    "isotropic": true,
+    "sound": "gravel",
+    "textures": "flattened_dirt"
+  },
+  "dirt_with_roots": {
+    "isotropic": true,
+    "sound": "dirt_with_roots",
+    "textures": "dirt_with_roots"
+  },
+  "glowstone": {
+    "isotropic": true,
+    "sound": "glass",
+    "textures": "glowstone"
+  },
+  "grass": {
+    "carried_textures": {
+      "down": "grass_carried_bottom",
+      "side": "grass_carried",
+      "up": "grass_carried_top"
+    },
+    "isotropic": {
+      "down": true,
+      "up": true
+    },
+    "sound": "grass",
+    "textures": {
+      "down": "grass_bottom",
+      "side": "grass_side",
+      "up": "grass_top"
+    }
+  },
+  "grass_path": {
+    "isotropic": {
+      "down": true,
+      "up": true
+    },
+    "sound": "grass",
+    "textures": {
+      "down": "dirt",
+      "side": "grass_path_side",
+      "up": "grass_path_top"
+    }
+  },
+  "hardened_clay": {
+    "isotropic": true,
+    "sound": "terracotta",
+    "textures": "hardened_clay"
+  },
+  "infested_deepslate": {
+    "isotropic": {
+      "down": true,
+      "up": true
+    },
+    "sound": "deepslate",
+    "textures": {
+      "down": "deepslate_top",
+      "side": "deepslate",
+      "up": "deepslate_top"
+    }
+  },
+  "jungle_leaves": {
+    "ambient_occlusion_exponent": 0.8,
+    "carried_textures": "jungle_leaves_carried",
+    "isotropic": {
+      "down": true,
+      "up": true
+    },
+    "sound": "grass",
+    "textures": "jungle_leaves"
+  },
+  "lava": {
+    "isotropic": true,
+    "textures": {
+      "down": "still_lava",
+      "side": "flowing_lava",
+      "up": "still_lava"
+    }
+  },
+  "leaves": {
+    "ambient_occlusion_exponent": 0.8,
+    "carried_textures": "leaves_carried",
+    "isotropic": {
+      "down": true,
+      "up": true
+    },
+    "sound": "grass",
+    "textures": "leaves"
+  },
+  "leaves2": {
+    "ambient_occlusion_exponent": 0.8,
+    "carried_textures": "leaves_carried2",
+    "isotropic": {
+      "down": true,
+      "up": true
+    },
+    "sound": "grass",
+    "textures": "leaves2"
+  },
+  "magma": {
+    "isotropic": true,
+    "sound": "stone",
+    "textures": "magma"
+  },
+  "mycelium": {
+    "isotropic": {
+      "down": true,
+      "up": true
+    },
+    "sound": "grass",
+    "textures": {
+      "down": "mycelium_bottom",
+      "side": "mycelium_side",
+      "up": "mycelium_top"
+    }
+  },
+  "netherrack": {
+    "isotropic": true,
+    "sound": "netherrack",
+    "textures": "netherrack"
+  },
+  "oak_leaves": {
+    "ambient_occlusion_exponent": 0.8,
+    "carried_textures": "oak_leaves_carried",
+    "isotropic": {
+      "down": true,
+      "up": true
+    },
+    "sound": "grass",
+    "textures": "oak_leaves"
+  },
+  "obsidian": {
+    "ambient_occlusion_exponent": 2,
+    "isotropic": true,
+    "sound": "stone",
+    "textures": "obsidian"
+  },
+  "podzol": {
+    "isotropic": {
+      "down": true,
+      "up": true
+    },
+    "sound": "gravel",
+    "textures": {
+      "down": "dirt_podzol_bottom",
+      "side": "dirt_podzol_side",
+      "up": "dirt_podzol_top"
+    }
+  },
+  "red_sand": {
+    "ambient_occlusion_exponent": 0.55,
+    "isotropic": true,
+    "sound": "sand",
+    "textures": "red_sand"
+  },
+  "red_sandstone": {
+    "ambient_occlusion_exponent": 1,
+    "isotropic": {
+      "down": true,
+      "up": true
+    },
+    "sound": "stone",
+    "textures": {
+      "down": "flattened_redsandstone_bottom",
+      "side": "flattened_redsandstone",
+      "up": "flattened_redsandstone_top"
+    }
+  },
+  "red_sandstone_stairs": {
+    "isotropic": {
+      "down": true,
+      "up": true
+    },
+    "textures": {
+      "down": "redsandstone_bottom",
+      "side": "redsandstone_side",
+      "up": "redsandstone_top"
+    }
+  },
+  "sand": {
+    "ambient_occlusion_exponent": 0.55,
+    "isotropic": true,
+    "sound": "sand",
+    "textures": "flattened_sand"
+  },
+  "sandstone": {
+    "ambient_occlusion_exponent": 1,
+    "isotropic": {
+      "down": true,
+      "up": true
+    },
+    "sound": "stone",
+    "textures": {
+      "down": "flattened_sandstone_bottom",
+      "side": "flattened_sandstone",
+      "up": "flattened_sandstone_top"
+    }
+  },
+  "sandstone_stairs": {
+    "isotropic": {
+      "down": true,
+      "up": true
+    },
+    "textures": {
+      "down": "sandstone_bottom",
+      "side": "sandstone_side",
+      "up": "sandstone_top"
+    }
+  },
+  "sculk": {
+    "isotropic": true,
+    "sound": "sculk",
+    "textures": "sculk"
+  },
+  "smooth_red_sandstone": {
+    "ambient_occlusion_exponent": 1,
+    "isotropic": {
+      "down": true,
+      "up": true
+    },
+    "sound": "stone",
+    "textures": {
+      "down": "flattened_redsandstone_top",
+      "side": "smooth_red_sandstone",
+      "up": "flattened_redsandstone_top"
+    }
+  },
+  "smooth_sandstone": {
+    "ambient_occlusion_exponent": 1,
+    "isotropic": {
+      "down": true,
+      "up": true
+    },
+    "sound": "stone",
+    "textures": {
+      "down": "flattened_sandstone_top",
+      "side": "smooth_sandstone",
+      "up": "flattened_sandstone_top"
+    }
+  },
+  "snow": {
+    "ambient_occlusion_exponent": 1,
+    "isotropic": true,
+    "sound": "snow",
+    "textures": "snow"
+  },
+  "snow_layer": {
+    "ambient_occlusion_exponent": 1,
+    "isotropic": true,
+    "sound": "snow",
+    "textures": "snow"
+  },
+  "sponge": {
+    "isotropic": true,
+    "sound": "sponge",
+    "textures": "flattened_sponge"
+  },
+  "spruce_leaves": {
+    "ambient_occlusion_exponent": 0.8,
+    "carried_textures": "spruce_leaves_carried",
+    "isotropic": {
+      "down": true,
+      "up": true
+    },
+    "sound": "grass",
+    "textures": "spruce_leaves"
+  },
+  "stained_hardened_clay": {
+    "isotropic": true,
+    "sound": "stone",
+    "textures": "stained_clay"
+  },
+  "warped_nylium": {
+    "isotropic": {
+      "down": true,
+      "up": true
+    },
+    "sound": "nylium",
+    "textures": {
+      "down": "netherrack",
+      "east": "warped_nylium_side",
+      "north": "warped_nylium_side",
+      "south": "warped_nylium_side",
+      "up": "warped_nylium_top",
+      "west": "warped_nylium_side"
+    }
+  },
+  "wet_sponge": {
+    "isotropic": true,
+    "sound": "wet_sponge",
+    "textures": "wet_sponge"
+  }
+};
 const STATIC_CTM = new Set(["top", "fixed", "repeat", "ctm", "ctm_compact", "horizontal", "vertical", "horizontal+vertical", "vertical+horizontal"]);
 const OVERLAY_CTM = new Set(["overlay_fixed", "overlay_random", "overlay_repeat"]);
 const slotPath = slot => typeof slot === "string" ? slot : slot?.path;
@@ -869,6 +1320,53 @@ class OptifineRandomBlockVariantConverter extends AbstractConverter {
         }
     }
 
+    // OptiFine's symmetry correlates/mirrors faces; it is not an opt-in to
+    // Bedrock's random UV rotation. Do not generate rotated/mirrored copies.
+    async disableVariantRotation(aliases) {
+        if (!aliases.size) return;
+        const path = "blocks.json";
+        let blocks = {};
+        if (await this.output.exists(path)) {
+            try {
+                blocks = JSON.parse((await this.output.read(path)).toString("utf8").replace(/^\uFEFF/,""));
+                if (!blocks || typeof blocks !== "object" || Array.isArray(blocks)) throw Error("expected an object");
+            } catch (error) {
+                this.log.warn("OptiFine CTM: cannot apply rotation overrides to blocks.json: "+error.message);
+                return;
+            }
+        }
+        const faces = ["up","down","north","south","east","west"];
+        const texture = (entry, face) => typeof entry.textures === "string" ?
+            entry.textures : entry.textures?.[face] ?? (face !== "up" && face !== "down" ? entry.textures?.side : undefined);
+        let count = 0;
+        const names = new Set([...Object.keys(VANILLA_ROTATING_BLOCKS),...Object.keys(blocks)]);
+        for (const name of names) {
+            const vanillaName = name.replace(/^minecraft:/,"");
+            if (!own(blocks,name) && own(blocks,"minecraft:"+name)) continue;
+            const vanilla = VANILLA_ROTATING_BLOCKS[vanillaName];
+            const existing = blocks[name];
+            if (existing !== undefined && (!existing || typeof existing !== "object" || Array.isArray(existing))) continue;
+            const entry = {...vanilla,...existing}, iso = entry.isotropic;
+            const enabled = face => iso === true || (iso && typeof iso === "object" &&
+                (iso[face] ?? (face !== "up" && face !== "down" ? iso.side : undefined)) === true);
+            const off = faces.filter(face => enabled(face) && aliases.has(texture(entry,face)));
+            if (!off.length) continue;
+            if (iso === true) {
+                entry.isotropic = off.length === faces.length ? false :
+                    Object.fromEntries(faces.map(face => [face,!off.includes(face)]));
+            } else {
+                entry.isotropic = {...iso};
+                for (const face of off) entry.isotropic[face] = false;
+            }
+            blocks[name] = entry;
+            count++;
+        }
+        if (count) {
+            await this.writeJson(path,blocks);
+            this.log.log(`OptiFine CTM: disabled random face rotation in ${count} RP block entries`);
+        }
+    }
+
     async loadCatalog() {
         const path = "textures/terrain_texture.json";
         if (!await this.output.exists(path)) {
@@ -965,9 +1463,13 @@ class OptifineRandomBlockVariantConverter extends AbstractConverter {
         if (!variants.length) return { converted: false, reason: "no readable, positive-weight CTM tiles" };
         try {
             if (repeat) {
-                const all = variants.length;
-                variants = await this.compatibleRepeat(variants);
-                if (variants.length < all) notes.push(`seam filter retained ${variants.length}/${all} repeat cells`);
+                try {
+                    const compatible = await this.compatibleRepeat(variants);
+                    if (compatible.length < variants.length) notes.push(
+                        `seam risk: only ${compatible.length}/${variants.length} cells passed the edge check; keeping all readable tiles as unordered variants`);
+                } catch (error) {
+                    notes.push(`seam check unavailable; keeping readable tiles: ${error.message}`);
+                }
             }
             if (!overlay) variants = await this.followChains(variants, path, claims.chains);
             const count = variants.length;
@@ -1096,12 +1598,16 @@ class OptifineRandomBlockVariantConverter extends AbstractConverter {
             if (!overlay || !claims.has(id)) claims.set(id, claim);
         }
         const quality = overlay || !["fixed","random"].includes(method) ? "approximate" : "native";
-        const distinct = new Set();
-        for (const layout of pending.values()) for (const slot of Array.isArray(layout) ? layout : [layout]) {
+        const distinct = new Set(), variedKeys = new Set();
+        for (const [id] of pendingClaims) {
+            const [key, index] = JSON.parse(id);
+            const layout = pending.get(key);
+            const slot = Array.isArray(layout) ? layout[index] : layout;
+            if (slot?.variations?.length > 1) variedKeys.add(key);
             if (slot?.variations) for (const v of slot.variations) distinct.add(v.path);
             else if (slotPath(slot)?.startsWith("textures/blocks/optifine_random/")) distinct.add(slotPath(slot));
         }
-        return { converted:true, method, quality, slots:applied, variants:distinct.size, inputCount, notes, duplicates, conflicts };
+        return { converted:true, method, quality, slots:applied, variants:distinct.size, inputCount, notes, duplicates, conflicts, variedKeys };
     }
 
     async convert() {
@@ -1119,7 +1625,7 @@ class OptifineRandomBlockVariantConverter extends AbstractConverter {
         if (!catalog) return [];
 
         let converted = 0, skipped = 0, native = 0, approximate = 0, duplicateRules = 0;
-        const claims = new Map();
+        const claims = new Map(), variedKeys = new Set();
         const rules = [];
         for (const path of propertyFiles) {
             try {
@@ -1139,6 +1645,7 @@ class OptifineRandomBlockVariantConverter extends AbstractConverter {
             const result = await this.convertRule(path, catalog, claims, props);
             if (result.converted) {
                 converted++;
+                for (const key of result.variedKeys) variedKeys.add(key);
                 if (result.quality === "native") native++; else approximate++;
                 this.log.log(`OptiFine CTM: ${path} -> ${result.slots.join(", ")} (${result.method}, ${result.quality}, ${result.inputCount} source tiles -> ${result.variants} distinct textures)`);
                 for (const note of result.notes) this.log.warn(`OptiFine CTM: ${path}: ${note}`);
@@ -1173,6 +1680,7 @@ class OptifineRandomBlockVariantConverter extends AbstractConverter {
                 await this.output.copy(fallback + ".png", base + ".png");
             }
             await this.writeJson("textures/terrain_texture.json", catalog);
+            await this.disableVariantRotation(variedKeys);
         }
         this.log.log(`OptiFine CTM: ${converted} converted (${native} native, ${approximate} approximate), ${skipped} skipped, ${duplicateRules} duplicate rules`);
         return [];
