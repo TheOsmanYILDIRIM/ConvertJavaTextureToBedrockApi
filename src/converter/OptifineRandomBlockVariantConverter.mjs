@@ -1097,9 +1097,33 @@ class OptifineRandomBlockVariantConverter extends AbstractConverter {
 
     async uniqueTiles(variants) {
         const winners=[], buckets=new Map();
+        // Scoped to one dedup pass, so regenerated output paths cannot use
+        // stale pixels. Keep decoded memory bounded on mobile.
+        const cache = new Map();
+        const budget = 8 * 1024 * 1024;
+        let retained = 0;
+        const getImageKey = async source => {
+            const cached = cache.get(source);
+            if (cached) {
+                cache.delete(source);
+                cache.set(source, cached);
+                return cached;
+            }
+            const decoded = await this.imageKey(source);
+            if (decoded.bytes.byteLength <= budget) {
+                while (retained + decoded.bytes.byteLength > budget) {
+                    const oldest = cache.keys().next().value;
+                    retained -= cache.get(oldest).bytes.byteLength;
+                    cache.delete(oldest);
+                }
+                cache.set(source, decoded);
+                retained += decoded.bytes.byteLength;
+            }
+            return decoded;
+        };
         for (const variant of variants) {
             if (!variant.source) { winners.push({...variant}); continue; }
-            const a=await this.imageKey(variant.source);
+            const a=await getImageKey(variant.source);
             // Material metadata matters only when requested. Exact compare on hash
             // collisions keeps the digest from merging unrelated visible textures.
             const material=this.options?.includeMaterialMaps === false ? "" : await this.materialIdentity(variant.source);
@@ -1107,7 +1131,7 @@ class OptifineRandomBlockVariantConverter extends AbstractConverter {
             const candidates=buckets.get(key)||[];
             let merged=false;
             for(const i of candidates) {
-                const b=await this.imageKey(winners[i].source);
+                const b=await getImageKey(winners[i].source);
                 if(a.bytes.length===b.bytes.length && a.bytes.every((n,j)=>n===b.bytes[j])) {
                     winners[i].weight+=variant.weight; merged=true; break;
                 }
