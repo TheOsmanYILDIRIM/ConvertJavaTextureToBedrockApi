@@ -37,6 +37,7 @@ import { NineSliceConverter } from "./NineSliceConverter.mjs";
 import { OpaqueConverter } from "./OpaqueConverter.mjs";
 import { OverlayToTranslateConverter } from "./OverlayToTranslateConverter.mjs";
 import { Particles1_13Converter } from "./Particles1_13Converter.mjs";
+import { TrialSpawnerAtlasConverter } from "./TrialSpawnerAtlasConverter.mjs";
 import { PistonArmConverter } from "./PistonArmConverter.mjs";
 import { PlaceholderConverter } from "./PlaceholderConverter.mjs";
 import { PngToTgaConverter } from "./PngToTgaConverter.mjs";
@@ -112,6 +113,7 @@ const converters = [
     SideRotateConverter,
     ArrowConverter,
     Particles1_13Converter,
+    TrialSpawnerAtlasConverter,
     SpriteConverter,
     DestroyStageConverter,
     EnchantedItemGlintConverter,

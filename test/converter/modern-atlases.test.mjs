@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { SpriteConverter } from "../../src/converter/SpriteConverter.mjs";
+import { TrialSpawnerAtlasConverter } from "../../src/converter/TrialSpawnerAtlasConverter.mjs";
 
 const data = SpriteConverter.DEFAULT_CONVERTER_DATA;
 const byTarget = new Map(data.map(rule => [rule[3], rule]));
@@ -49,4 +50,18 @@ test("atlas geometry matches Bedrock layouts used by 26.3", () => {
   const leaf = byTarget.get("textures/particle/biome_tinted_leaves_atlas.png")[2];
   assert.deepEqual(leaf[0].slice(1), [1, 1, 5]);
   assert.deepEqual(leaf[11].slice(1), [22, 15, 5]);
+});
+
+
+test("trial-spawner detector frames are packed into Bedrock 8x8 atlases", () => {
+  assert.deepEqual(TrialSpawnerAtlasConverter.DEFAULT_CONVERTER_DATA, [
+    [
+      "textures/particle/trial_spawner_detection_",
+      "textures/particles/trial_spawner_atlas.png"
+    ],
+    [
+      "textures/particle/trial_spawner_detection_ominous_",
+      "textures/particles/trial_spawner_ominous_atlas.png"
+    ]
+  ]);
 });
