@@ -287,7 +287,220 @@ class SpriteConverter extends AbstractConverter {
                 ["textures/particle/soul_8.png", 0, 128, 16],
                 ["textures/particle/soul_9.png", 0, 144, 16],
                 ["textures/particle/soul_10.png", 0, 160, 16],
-            ], "textures/particle/soul.png"]
+            ], "textures/particle/soul.png"],
+
+            // Moon phases (Java 26.3 -> Bedrock atlas)
+            [128, 64, [
+                ["textures/environment/celestial/moon/full_moon.png", 0, 0, 32],
+                ["textures/environment/celestial/moon/waning_gibbous.png", 32, 0, 32],
+                ["textures/environment/celestial/moon/third_quarter.png", 64, 0, 32],
+                ["textures/environment/celestial/moon/waning_crescent.png", 96, 0, 32],
+                ["textures/environment/celestial/moon/new_moon.png", 0, 32, 32],
+                ["textures/environment/celestial/moon/waxing_crescent.png", 32, 32, 32],
+                ["textures/environment/celestial/moon/first_quarter.png", 64, 32, 32],
+                ["textures/environment/celestial/moon/waxing_gibbous.png", 96, 32, 32]
+            ], "textures/environment/moon_phases.png"],
+
+            // Cherry petal animation atlas
+            [12, 9, [
+                ["textures/particle/cherry_0.png", 0, 0, 3],
+                ["textures/particle/cherry_1.png", 3, 0, 3],
+                ["textures/particle/cherry_2.png", 6, 0, 3],
+                ["textures/particle/cherry_3.png", 9, 0, 3],
+                ["textures/particle/cherry_4.png", 0, 3, 3],
+                ["textures/particle/cherry_5.png", 3, 3, 3],
+                ["textures/particle/cherry_6.png", 6, 3, 3],
+                ["textures/particle/cherry_7.png", 9, 3, 3],
+                ["textures/particle/cherry_8.png", 0, 6, 3],
+                ["textures/particle/cherry_9.png", 3, 6, 3],
+                ["textures/particle/cherry_10.png", 6, 6, 3],
+                ["textures/particle/cherry_11.png", 9, 6, 3]
+            ], "textures/particle/cherry_petal_atlas.png"],
+
+            // Biome-tinted leaf particle atlas
+            [28, 21, [
+                ["textures/particle/leaf_0.png", 1, 1, 5],
+                ["textures/particle/leaf_1.png", 8, 1, 5],
+                ["textures/particle/leaf_2.png", 15, 1, 5],
+                ["textures/particle/leaf_3.png", 22, 1, 5],
+                ["textures/particle/leaf_4.png", 1, 8, 5],
+                ["textures/particle/leaf_5.png", 8, 8, 5],
+                ["textures/particle/leaf_6.png", 15, 8, 5],
+                ["textures/particle/leaf_7.png", 22, 8, 5],
+                ["textures/particle/leaf_8.png", 1, 15, 5],
+                ["textures/particle/leaf_9.png", 8, 15, 5],
+                ["textures/particle/leaf_10.png", 15, 15, 5],
+                ["textures/particle/leaf_11.png", 22, 15, 5]
+            ], "textures/particle/biome_tinted_leaves_atlas.png"],
+
+            // Pale oak leaf particle atlas
+            [28, 21, [
+                ["textures/particle/pale_oak_0.png", 1, 1, 5],
+                ["textures/particle/pale_oak_1.png", 8, 1, 5],
+                ["textures/particle/pale_oak_2.png", 15, 1, 5],
+                ["textures/particle/pale_oak_3.png", 22, 1, 5],
+                ["textures/particle/pale_oak_4.png", 1, 8, 5],
+                ["textures/particle/pale_oak_5.png", 8, 8, 5],
+                ["textures/particle/pale_oak_6.png", 15, 8, 5],
+                ["textures/particle/pale_oak_7.png", 22, 8, 5],
+                ["textures/particle/pale_oak_8.png", 1, 15, 5],
+                ["textures/particle/pale_oak_9.png", 8, 15, 5],
+                ["textures/particle/pale_oak_10.png", 15, 15, 5],
+                ["textures/particle/pale_oak_11.png", 22, 15, 5]
+            ], "textures/particle/pale_oak_leaves_atlas.png"],
+
+            // Orange poplar leaf particle atlas
+            [28, 7, [
+                ["textures/particle/orange_poplar_1.png", 1, 1, 5],
+                ["textures/particle/orange_poplar_2.png", 8, 1, 5],
+                ["textures/particle/orange_poplar_3.png", 15, 1, 5],
+                ["textures/particle/orange_poplar_4.png", 22, 1, 5]
+            ], "textures/particle/orange_poplar_leaves_atlas.png"],
+
+            // Red poplar leaf particle atlas
+            [28, 7, [
+                ["textures/particle/red_poplar_1.png", 1, 1, 5],
+                ["textures/particle/red_poplar_2.png", 8, 1, 5],
+                ["textures/particle/red_poplar_3.png", 15, 1, 5],
+                ["textures/particle/red_poplar_4.png", 22, 1, 5]
+            ], "textures/particle/red_poplar_leaves_atlas.png"],
+
+            // Yellow poplar leaf particle atlas
+            [28, 7, [
+                ["textures/particle/yellow_poplar_1.png", 1, 1, 5],
+                ["textures/particle/yellow_poplar_2.png", 8, 1, 5],
+                ["textures/particle/yellow_poplar_3.png", 15, 1, 5],
+                ["textures/particle/yellow_poplar_4.png", 22, 1, 5]
+            ], "textures/particle/yellow_poplar_leaves_atlas.png"],
+
+            // Geyser base animation atlas
+            [16, 128, [
+                ["textures/particle/geyser_base_01.png", 0, 0, 16],
+                ["textures/particle/geyser_base_02.png", 0, 16, 16],
+                ["textures/particle/geyser_base_03.png", 0, 32, 16],
+                ["textures/particle/geyser_base_04.png", 0, 48, 16],
+                ["textures/particle/geyser_base_05.png", 0, 64, 16],
+                ["textures/particle/geyser_base_06.png", 0, 80, 16],
+                ["textures/particle/geyser_base_07.png", 0, 96, 16],
+                ["textures/particle/geyser_base_08.png", 0, 112, 16]
+            ], "textures/particle/geyser_base.png"],
+
+            // Geyser plume animation atlas
+            [16, 128, [
+                ["textures/particle/geyser_plume_01.png", 0, 0, 16],
+                ["textures/particle/geyser_plume_02.png", 0, 16, 16],
+                ["textures/particle/geyser_plume_03.png", 0, 32, 16],
+                ["textures/particle/geyser_plume_04.png", 0, 48, 16],
+                ["textures/particle/geyser_plume_05.png", 0, 64, 16],
+                ["textures/particle/geyser_plume_06.png", 0, 80, 16],
+                ["textures/particle/geyser_plume_07.png", 0, 96, 16],
+                ["textures/particle/geyser_plume_08.png", 0, 112, 16]
+            ], "textures/particle/geyser_plume.png"],
+
+            // Geyser poof animation atlas
+            [16, 128, [
+                ["textures/particle/geyser_poof_01.png", 0, 0, 16],
+                ["textures/particle/geyser_poof_02.png", 0, 16, 16],
+                ["textures/particle/geyser_poof_03.png", 0, 32, 16],
+                ["textures/particle/geyser_poof_04.png", 0, 48, 16],
+                ["textures/particle/geyser_poof_05.png", 0, 64, 16],
+                ["textures/particle/geyser_poof_06.png", 0, 80, 16],
+                ["textures/particle/geyser_poof_07.png", 0, 96, 16],
+                ["textures/particle/geyser_poof_08.png", 0, 112, 16]
+            ], "textures/particle/geyser_poof.png"],
+
+            // Noxious gas animation atlas
+            [16, 128, [
+                ["textures/particle/noxious_gas_01.png", 0, 0, 16],
+                ["textures/particle/noxious_gas_02.png", 0, 16, 16],
+                ["textures/particle/noxious_gas_03.png", 0, 32, 16],
+                ["textures/particle/noxious_gas_04.png", 0, 48, 16],
+                ["textures/particle/noxious_gas_05.png", 0, 64, 16],
+                ["textures/particle/noxious_gas_06.png", 0, 80, 16],
+                ["textures/particle/noxious_gas_07.png", 0, 96, 16],
+                ["textures/particle/noxious_gas_08.png", 0, 112, 16]
+            ], "textures/particle/noxious_gas.png"],
+
+            // Sculk charge animation atlas
+            [16, 112, [
+                ["textures/particle/sculk_charge_0.png", 0, 0, 16],
+                ["textures/particle/sculk_charge_1.png", 0, 16, 16],
+                ["textures/particle/sculk_charge_2.png", 0, 32, 16],
+                ["textures/particle/sculk_charge_3.png", 0, 48, 16],
+                ["textures/particle/sculk_charge_4.png", 0, 64, 16],
+                ["textures/particle/sculk_charge_5.png", 0, 80, 16],
+                ["textures/particle/sculk_charge_6.png", 0, 96, 16]
+            ], "textures/particle/sculk_charge.png"],
+
+            // Sculk charge pop animation atlas
+            [16, 64, [
+                ["textures/particle/sculk_charge_pop_0.png", 0, 0, 16],
+                ["textures/particle/sculk_charge_pop_1.png", 0, 16, 16],
+                ["textures/particle/sculk_charge_pop_2.png", 0, 32, 16],
+                ["textures/particle/sculk_charge_pop_3.png", 0, 48, 16]
+            ], "textures/particle/sculk_charge_pop.png"],
+
+            // Sculk soul animation atlas
+            [16, 176, [
+                ["textures/particle/sculk_soul_0.png", 0, 0, 16],
+                ["textures/particle/sculk_soul_1.png", 0, 16, 16],
+                ["textures/particle/sculk_soul_2.png", 0, 32, 16],
+                ["textures/particle/sculk_soul_3.png", 0, 48, 16],
+                ["textures/particle/sculk_soul_4.png", 0, 64, 16],
+                ["textures/particle/sculk_soul_5.png", 0, 80, 16],
+                ["textures/particle/sculk_soul_6.png", 0, 96, 16],
+                ["textures/particle/sculk_soul_7.png", 0, 112, 16],
+                ["textures/particle/sculk_soul_8.png", 0, 128, 16],
+                ["textures/particle/sculk_soul_9.png", 0, 144, 16],
+                ["textures/particle/sculk_soul_10.png", 0, 160, 16]
+            ], "textures/particle/sculk_soul.png"],
+
+            // Gust animation atlas
+            [384, 32, [
+                ["textures/particle/gust_0.png", 0, 0, 32],
+                ["textures/particle/gust_1.png", 32, 0, 32],
+                ["textures/particle/gust_2.png", 64, 0, 32],
+                ["textures/particle/gust_3.png", 96, 0, 32],
+                ["textures/particle/gust_4.png", 128, 0, 32],
+                ["textures/particle/gust_5.png", 160, 0, 32],
+                ["textures/particle/gust_6.png", 192, 0, 32],
+                ["textures/particle/gust_7.png", 224, 0, 32],
+                ["textures/particle/gust_8.png", 256, 0, 32],
+                ["textures/particle/gust_9.png", 288, 0, 32],
+                ["textures/particle/gust_10.png", 320, 0, 32],
+                ["textures/particle/gust_11.png", 352, 0, 32]
+            ], "textures/particle/gust.png"],
+
+            // Small gust animation atlas
+            [56, 8, [
+                ["textures/particle/small_gust_0.png", 0, 0, 8],
+                ["textures/particle/small_gust_1.png", 8, 0, 8],
+                ["textures/particle/small_gust_2.png", 16, 0, 8],
+                ["textures/particle/small_gust_3.png", 24, 0, 8],
+                ["textures/particle/small_gust_4.png", 32, 0, 8],
+                ["textures/particle/small_gust_5.png", 40, 0, 8],
+                ["textures/particle/small_gust_6.png", 48, 0, 8]
+            ], "textures/particle/small_gust.png"],
+
+            // Sonic boom animation atlas
+            [32, 512, [
+                ["textures/particle/sonic_boom_0.png", 0, 0, 32],
+                ["textures/particle/sonic_boom_1.png", 0, 32, 32],
+                ["textures/particle/sonic_boom_2.png", 0, 64, 32],
+                ["textures/particle/sonic_boom_3.png", 0, 96, 32],
+                ["textures/particle/sonic_boom_4.png", 0, 128, 32],
+                ["textures/particle/sonic_boom_5.png", 0, 160, 32],
+                ["textures/particle/sonic_boom_6.png", 0, 192, 32],
+                ["textures/particle/sonic_boom_7.png", 0, 224, 32],
+                ["textures/particle/sonic_boom_8.png", 0, 256, 32],
+                ["textures/particle/sonic_boom_9.png", 0, 288, 32],
+                ["textures/particle/sonic_boom_10.png", 0, 320, 32],
+                ["textures/particle/sonic_boom_11.png", 0, 352, 32],
+                ["textures/particle/sonic_boom_12.png", 0, 384, 32],
+                ["textures/particle/sonic_boom_13.png", 0, 416, 32],
+                ["textures/particle/sonic_boom_14.png", 0, 448, 32],
+                ["textures/particle/sonic_boom_15.png", 0, 480, 32]
+            ], "textures/particle/sonic_explosion.png"]
         ];
     }
 }
