@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { SpriteConverter } from "../../src/converter/SpriteConverter.mjs";
 import { TrialSpawnerAtlasConverter } from "../../src/converter/TrialSpawnerAtlasConverter.mjs";
+import { JAVA_26_3_TO_BEDROCK_1_26_50_4 } from "../../src/converter/data/java26_3-bedrock1_26_50_4.mjs";
 
 const data = SpriteConverter.DEFAULT_CONVERTER_DATA;
 const byTarget = new Map(data.map(rule => [rule[3], rule]));
@@ -64,4 +65,22 @@ test("trial-spawner detector frames are packed into Bedrock 8x8 atlases", () => 
       "textures/particles/trial_spawner_ominous_atlas.png"
     ]
   ]);
+});
+
+
+test("reviewed Java 26.3 direct mappings are retained without known visual-only false positives", () => {
+  const mapping = new Map(JAVA_26_3_TO_BEDROCK_1_26_50_4);
+  for (let i = 0; i < 16; i++) {
+    const suffix = String(i).padStart(2, "0");
+    assert.equal(mapping.get(`textures/items/light_${suffix}.png`), `textures/items/light_block_${i}.png`);
+  }
+  assert.equal(mapping.get("textures/items/glass_bottle.png"), "textures/items/potion_bottle_empty.png");
+  assert.equal(mapping.get("textures/items/pitcher_plant.png"), "textures/blocks/pitcher_crop_top_stage_4.png");
+  assert.equal(mapping.get("textures/items/sulfur_spike.png"), "textures/blocks/sulfur_spike_down_tip.png");
+  assert.equal(mapping.get("textures/map/decorations/mineshaft.png"), "textures/map/mineshaft.png");
+  assert.equal(mapping.get("textures/map/decorations/trial_chambers.png"), "textures/map/trial_chambers.png");
+  assert.equal(mapping.get("textures/map/map_background_checkerboard.png"), "textures/map/map_background.png");
+  assert.notEqual(mapping.get("textures/blocks/lightning_rod_on.png"), "textures/map/player_icon_background.png");
+  assert.notEqual(mapping.get("textures/map/decorations/ocean_monument.png"), "textures/items/map_monument.png");
+  assert.notEqual(mapping.get("textures/map/decorations/red_x.png"), "textures/ui/realms_red_x.png");
 });

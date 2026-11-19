@@ -3,6 +3,35 @@
 // NOT independently validated in Minecraft. Applied only with explicit matching options.
 export const JAVA_26_3_TO_BEDROCK_1_26_50_4 = [
   ["textures/blocks/short_grass.png", "textures/blocks/tallgrass.png"],
+  // User-reviewed 2026-11-19 mappings from the Java 26.3 / Bedrock default-pack audit.
+  // Deliberately excludes visual-only false positives (for example lightning_rod_on -> map/player_icon_background).
+  ["textures/blocks/pale_moss_carpet.png", "textures/blocks/pale_moss_block.png"],
+  ["textures/items/abandoned_camp_map.png", "textures/items/map_abandoned_campsite.png"],
+  ["textures/items/buried_ancient_city_map.png", "textures/items/map_ancient_city.png"],
+  ["textures/items/glass_bottle.png", "textures/items/potion_bottle_empty.png"],
+  ["textures/items/light_00.png", "textures/items/light_block_0.png"],
+  ["textures/items/light_01.png", "textures/items/light_block_1.png"],
+  ["textures/items/light_02.png", "textures/items/light_block_2.png"],
+  ["textures/items/light_03.png", "textures/items/light_block_3.png"],
+  ["textures/items/light_04.png", "textures/items/light_block_4.png"],
+  ["textures/items/light_05.png", "textures/items/light_block_5.png"],
+  ["textures/items/light_06.png", "textures/items/light_block_6.png"],
+  ["textures/items/light_07.png", "textures/items/light_block_7.png"],
+  ["textures/items/light_08.png", "textures/items/light_block_8.png"],
+  ["textures/items/light_09.png", "textures/items/light_block_9.png"],
+  ["textures/items/light_10.png", "textures/items/light_block_10.png"],
+  ["textures/items/light_11.png", "textures/items/light_block_11.png"],
+  ["textures/items/light_12.png", "textures/items/light_block_12.png"],
+  ["textures/items/light_13.png", "textures/items/light_block_13.png"],
+  ["textures/items/light_14.png", "textures/items/light_block_14.png"],
+  ["textures/items/light_15.png", "textures/items/light_block_15.png"],
+  ["textures/items/pitcher_plant.png", "textures/blocks/pitcher_crop_top_stage_4.png"],
+  ["textures/items/sulfur_spike.png", "textures/blocks/sulfur_spike_down_tip.png"],
+  ["textures/items/warm_ocean_ruins_map.png", "textures/items/map_warm_ocean_ruins.png"],
+  ["textures/map/decorations/mineshaft.png", "textures/map/mineshaft.png"],
+  ["textures/map/decorations/trial_chambers.png", "textures/map/trial_chambers.png"],
+  ["textures/map/map_background_checkerboard.png", "textures/map/map_background.png"],
+
   // Family-derived mappings validated against the pinned Bedrock entity definitions.
   ["textures/entity/cow/cow_temperate.png", "textures/entity/cow/cow_v2.png"],
   ["textures/entity/cow/mooshroom_brown.png", "textures/entity/cow/brown_mooshroom_v2.png"],

@@ -8,10 +8,16 @@ import { DeleteConverter } from "./DeleteConverter.mjs";
  * column x=3, starting at y=1. Bedrock stores those five columns side by side.
  */
 class TrialSpawnerAtlasConverter extends AbstractConverter {
+    isTargetProfile() {
+        return this.options?.javaVersion === "26.3" && this.options?.bedrockVersion === "1.26.50.4";
+    }
+
     /**
      * @inheritDoc
      */
     async convert() {
+        if (!this.isTargetProfile()) return [];
+
         const [base, to] = this.data;
 
         const to_delete = [];
